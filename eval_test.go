@@ -80,13 +80,22 @@ func TestNewExpressionSimplifyConstants(t *testing.T) {
 	}
 }
 
+func TestDivisorNaN(t *testing.T) {
+	r := 5 / math.NaN()
+	if !math.IsNaN(r) {
+		t.Errorf("Actual: %#v; Expected: %#v", r, math.NaN)
+	}
+}
+
 func TestNewExpressionSimplifiesWhatItCan(t *testing.T) {
 	list := map[string]string{
-		"5,2,+": "7",
-		"5,2,-": "3",
-		"5,2,*": "10",
-		"5,2,/": "2.5",
-		"5,2,%": "1",
+		"5,2,+":    "7",
+		"5,2,-":    "3",
+		"5,2,*":    "10",
+		"5,2,/":    "2.5",
+		"5,2,%":    "1",
+		"5,NaN,/":  "UNKN", // NaN is represented as UNKN (don't like this)
+		"5,UNKN,/": "UNKN", // NaN is represented as UNKN (don't like this)
 
 		"x,x,+": "x,x,+",
 		"x,x,-": "x,x,-",

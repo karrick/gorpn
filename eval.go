@@ -187,7 +187,8 @@ func (e Expression) String() string {
 		case float64:
 			switch {
 			case math.IsNaN(v.(float64)):
-				strs[idx] = "UNKN"
+				// strs[idx] = "NaN" // would prefer this
+				strs[idx] = "UNKN" // don't like this
 			case math.IsInf(v.(float64), 1):
 				strs[idx] = "INF"
 			case math.IsInf(v.(float64), -1):
