@@ -1465,3 +1465,132 @@ func TestNewExpressionMEDIAN(t *testing.T) {
 		}
 	}
 }
+
+// NEWDAY, NEWWEEK, NEWMONTH, NEWYEAR
+
+func TestEvaluateNEWDAY(t *testing.T) {
+	exp, err := New("NEWDAY")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = exp.Evaluate(nil)
+	if err == nil || err.Error() != "open bindings: TIME" {
+		t.Errorf("Actual: %#v; Expected: %#v", err, "open bindings: TIME")
+	}
+
+	value, err := exp.Evaluate(map[string]interface{}{"TIME": 1234567890})
+	if err != nil {
+		t.Errorf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if value != 0 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 0)
+	}
+
+	epoch := 0
+	localTime := time.Unix(int64(epoch), 0)
+	_, offset := localTime.Zone()
+
+	value, err = exp.Evaluate(map[string]interface{}{"TIME": localTime.Unix() - int64(offset)})
+	if err != nil {
+		t.Errorf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if value != 1 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 1)
+	}
+}
+
+func TestEvaluateNEWWEEK(t *testing.T) {
+	exp, err := New("NEWWEEK")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = exp.Evaluate(nil)
+	if err == nil || err.Error() != "open bindings: TIME" {
+		t.Errorf("Actual: %#v; Expected: %#v", err, "open bindings: TIME")
+	}
+
+	value, err := exp.Evaluate(map[string]interface{}{"TIME": 1234567890})
+	if err != nil {
+		t.Errorf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if value != 0 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 0)
+	}
+
+	epoch := 4 * 86400 // unix epoch was on Wednesday, so advance to following Sunday
+	jTime, _ := julietTime(epoch)
+
+	value, err = exp.Evaluate(map[string]interface{}{"TIME": jTime.Unix()})
+	if err != nil {
+		t.Errorf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if value != 1 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 1)
+	}
+}
+
+func TestEvaluateNEWMONTH(t *testing.T) {
+	exp, err := New("NEWMONTH")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = exp.Evaluate(nil)
+	if err == nil || err.Error() != "open bindings: TIME" {
+		t.Errorf("Actual: %#v; Expected: %#v", err, "open bindings: TIME")
+	}
+
+	value, err := exp.Evaluate(map[string]interface{}{"TIME": 1234567890})
+	if err != nil {
+		t.Errorf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if value != 0 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 0)
+	}
+
+	epoch := 0
+	localTime := time.Unix(int64(epoch), 0)
+	_, offset := localTime.Zone()
+
+	value, err = exp.Evaluate(map[string]interface{}{"TIME": localTime.Unix() - int64(offset)})
+	if err != nil {
+		t.Errorf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if value != 1 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 1)
+	}
+}
+
+func TestEvaluateNEWYEAR(t *testing.T) {
+	exp, err := New("NEWYEAR")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = exp.Evaluate(nil)
+	if err == nil || err.Error() != "open bindings: TIME" {
+		t.Errorf("Actual: %#v; Expected: %#v", err, "open bindings: TIME")
+	}
+
+	value, err := exp.Evaluate(map[string]interface{}{"TIME": 1234567890})
+	if err != nil {
+		t.Errorf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if value != 0 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 0)
+	}
+
+	epoch := 0
+	localTime := time.Unix(int64(epoch), 0)
+	_, offset := localTime.Zone()
+
+	value, err = exp.Evaluate(map[string]interface{}{"TIME": localTime.Unix() - int64(offset)})
+	if err != nil {
+		t.Errorf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if value != 1 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 1)
+	}
+}
