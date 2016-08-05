@@ -146,7 +146,7 @@ func newErrSyntax(a ...interface{}) ErrSyntax {
 type Expression struct {
 	delimiter                string
 	openBindings             map[string]int // count of number of instances
-	intervalsPerSecond       float64
+	secondsPerInterval       float64
 	tokens                   []interface{} // components of the expression
 	performTimeSubstitutions bool
 	// work area
@@ -163,7 +163,7 @@ func New(someExpression string, setters ...ExpressionSetter) (*Expression, error
 	}
 	e := &Expression{
 		delimiter:          DefaultDelimiter,
-		intervalsPerSecond: 1 / float64(DefaultSecondsPerInterval),
+		secondsPerInterval: DefaultSecondsPerInterval,
 	}
 	for _, setter := range setters {
 		if err := setter(e); err != nil {
@@ -204,9 +204,9 @@ func Delimiter(someByte string) ExpressionSetter {
 
 // SecondsPerInterval allows changing the expected number of seconds per interval to be used when
 // evaluating an RPN Expression from the default value of 300..
-func SecondsPerInterval(seconds int) ExpressionSetter {
+func SecondsPerInterval(seconds float64) ExpressionSetter {
 	return func(e *Expression) error {
-		e.intervalsPerSecond = 1 / float64(seconds)
+		e.secondsPerInterval = seconds
 		return nil
 	}
 }
@@ -245,7 +245,7 @@ func (e *Expression) Partial(bindings map[string]interface{}) (*Expression, erro
 	// preventing time substitutions from being made during this simplify operation
 	exp := &Expression{
 		delimiter:          e.delimiter,
-		intervalsPerSecond: e.intervalsPerSecond,
+		secondsPerInterval: e.secondsPerInterval,
 		tokens:             make([]interface{}, len(e.tokens)),
 		scratchSize:        e.scratchSize,
 		scratch:            make([]interface{}, e.scratchSize),
@@ -418,7 +418,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				}
 				e.scratchHead++
 			case "STEPWIDTH":
-				e.scratch[e.scratchHead] = 1 / e.intervalsPerSecond
+				e.scratch[e.scratchHead] = e.secondsPerInterval
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "TIME":
@@ -928,7 +928,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(v) || math.IsInf(v, 1) || math.IsInf(v, -1) || v <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, v)
 							}
-							count = int(math.Ceil(v * e.intervalsPerSecond))
+							count = int(math.Ceil(v / float64(e.secondsPerInterval)))
 							// get series label
 							label, ok := e.scratch[indexOfFirstArg].(string)
 							if !ok {
@@ -968,7 +968,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(v) || math.IsInf(v, 1) || math.IsInf(v, -1) || v <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, v)
 							}
-							count = int(math.Ceil(v * e.intervalsPerSecond))
+							count = int(math.Ceil(v / e.secondsPerInterval))
 							// get series label
 							label, ok := e.scratch[indexOfFirstArg].(string)
 							if !ok {
