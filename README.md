@@ -28,7 +28,7 @@ expression and evaluate it.
 ### With Variable Bindings
 
 For RPN expressions that do _not_ contain all the required data, and require variable bindings,
-provide them in the form of a map of string variable names to their respective numberical values.
+provide them in the form of a map of string variable names to their respective numerical values.
 
 ```Go
     expression, err := gorpn.New("12,age.*")
