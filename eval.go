@@ -176,7 +176,7 @@ func New(someExpression string, setters ...ExpressionSetter) (*Expression, error
 	e.tokens = make([]interface{}, e.scratchSize)
 	for idx, token := range tokens {
 		switch token {
-		case "NOW", "TIME", "LTIME":
+		case "NOW", "TIME", "LTIME", "NEWDAY", "NEWWEEK", "NEWMONTH", "NEWYEAR":
 			e.performTimeSubstitutions = true
 		case "DUP":
 			e.scratchSize++
@@ -279,10 +279,11 @@ func (e *Expression) Evaluate(bindings map[string]interface{}) (float64, error) 
 	var openBindings []string
 	for k, v := range e.openBindings {
 		if v > 0 {
-			if k == "LTIME" {
-				// NOTE: LTIME token actually requires TIME to be bound
+			switch k {
+			case "LTIME", "NEWDAY", "NEWWEEK", "NEWMONTH", "NEWYEAR":
+				// NOTE: these tokens actually require TIME to be bound
 				openBindings = append(openBindings, "TIME")
-			} else {
+			default:
 				openBindings = append(openBindings, k)
 			}
 		}
@@ -323,6 +324,15 @@ func (e Expression) valid(bindings map[string]interface{}) bool {
 	return e.isFloat[0]
 }
 
+func julietTime(secondsSinceEpoch int) (time.Time, int64) {
+	julietTime := time.Unix(int64(secondsSinceEpoch), 0) // Juliet time zone is "local" time zone
+	_, julietOffset := julietTime.Zone()
+	julietSeconds := julietTime.Unix() + int64(julietOffset)
+	// fmt.Printf("julietTime: %v; julietSeconds: %v\n", julietTime, julietSeconds)
+	// fmt.Printf("zuluTime: %v; zuluSeconds: %v\n", julietTime.UTC(), julietTime.UTC().Unix())
+	return julietTime, julietSeconds
+}
+
 func (e *Expression) simplify(bindings map[string]interface{}) error {
 	// NOTE: scratch is not local variable so Partial has access to it
 	// TODO: change method signature to pass it back and make it local
@@ -340,21 +350,20 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 
 	// heisenberg principle, realized: it takes time to observe the time, so do it only once
 	var now interface{} = "NOW"
-	var utcTime interface{} = "TIME"
+	var zuluTime interface{} = "TIME"
 	var localTime interface{} = "LTIME"
-	var isNowFloat, isTimeFloat bool
+	var isNowSet, isTimeSet bool
 
 	if e.performTimeSubstitutions {
 		now = float64(time.Now().Unix())
-		isNowFloat = true
+		isNowSet = true
 
 		if tm, ok := bindings["TIME"]; ok {
 			if secondsSinceEpoch, ok := tm.(float64); ok {
-				lTime := time.Unix(int64(secondsSinceEpoch), 0)
-				utcTime = float64(lTime.Unix())
-				_, utcOffsetSeconds := lTime.Zone()
-				localTime = utcTime.(float64) + float64(utcOffsetSeconds)
-				isTimeFloat = true
+				jTime, jSeconds := julietTime(int(secondsSinceEpoch))
+				zuluTime = float64(jTime.Unix())
+				localTime = float64(jSeconds)
+				isTimeSet = true
 			}
 		}
 	}
@@ -403,17 +412,46 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.scratch[e.scratchHead] = math.Inf(-1)
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
+			case "NEWDAY", "NEWWEEK", "NEWMONTH", "NEWYEAR":
+				if isTimeSet {
+					var n float64
+					t := time.Unix(int64(zuluTime.(float64)), 0)
+					switch token {
+					case "NEWDAY":
+						if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 {
+							n = 1
+						}
+					case "NEWWEEK":
+						if t.Weekday() == time.Sunday {
+							n = 1
+						}
+					case "NEWMONTH":
+						if t.Day() == 1 {
+							n = 1
+						}
+					case "NEWYEAR":
+						if t.Month() == time.January && t.Day() == 1 {
+							n = 1
+						}
+					}
+					e.scratch[e.scratchHead] = n
+				} else {
+					e.scratch[e.scratchHead] = token
+					e.openBindings[token] = e.openBindings[token] + 1
+				}
+				e.isFloat[e.scratchHead] = isTimeSet
+				e.scratchHead++
 			case "NOW":
 				e.scratch[e.scratchHead] = now
-				e.isFloat[e.scratchHead] = isNowFloat
-				if !isNowFloat {
+				e.isFloat[e.scratchHead] = isNowSet
+				if !isNowSet {
 					e.openBindings[token] = e.openBindings[token] + 1
 				}
 				e.scratchHead++
 			case "LTIME":
 				e.scratch[e.scratchHead] = localTime
-				e.isFloat[e.scratchHead] = isTimeFloat
-				if !isTimeFloat {
+				e.isFloat[e.scratchHead] = isTimeSet
+				if !isTimeSet {
 					e.openBindings[token] = e.openBindings[token] + 1
 				}
 				e.scratchHead++
@@ -422,9 +460,9 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "TIME":
-				e.scratch[e.scratchHead] = utcTime
-				e.isFloat[e.scratchHead] = isTimeFloat
-				if !isTimeFloat {
+				e.scratch[e.scratchHead] = zuluTime
+				e.isFloat[e.scratchHead] = isTimeSet
+				if !isTimeSet {
 					e.openBindings[token] = e.openBindings[token] + 1
 				}
 				e.scratchHead++
