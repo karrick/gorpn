@@ -1418,3 +1418,50 @@ func TestEvaluateLTIMEWithTime(t *testing.T) {
 		t.Errorf("Actual: %#v; Expected: %#v", int(value), expected)
 	}
 }
+
+// MEDIAN
+
+func TestNewExpressionMEDIAN(t *testing.T) {
+	errors := map[string]string{
+		"1,2,3,-1,MEDIAN":     "syntax error : MEDIAN operator requires positive finite integer: -1",
+		"1,2,3,0,MEDIAN":      "syntax error : MEDIAN operator requires positive finite integer: 0",
+		"1,2,3,4,MEDIAN":      "syntax error : MEDIAN 4 items, but only 3 on stack",
+		"1,2,3,INF,MEDIAN":    "syntax error : MEDIAN operator requires positive finite integer: +Inf",
+		"1,2,3,NEGINF,MEDIAN": "syntax error : MEDIAN operator requires positive finite integer: -Inf",
+	}
+	for i, e := range errors {
+		if _, err := New(i); err == nil || err.Error() != e {
+			t.Errorf("Case: %s; Actual: %s; Expected: %#v", i, err, e)
+		}
+	}
+	list := map[string]string{
+		// "a,b,c,3,MEDIAN": "a,b,c,3,MEDIAN", // cannot sort variables
+
+		// one item
+		"13,1,MEDIAN": "13",
+		"a,1,MEDIAN":  "a", // pin-hole optimization
+
+		// two items -- average
+		"a,b,c,d,e,f,13,42,2,MEDIAN": "a,b,c,d,e,f,27.5",
+		"42,13,2,MEDIAN":             "27.5",
+
+		// three items -- middle
+		"42,666,13,3,MEDIAN": "42",
+		// four items -- average of middle
+		"1,1,2,3,4,MEDIAN": "1.5",
+		// five items -- middle
+		"3,2,5,1,4,5,MEDIAN": "3",
+		//
+		"13,a,ISINF,2,MEDIAN": "13,a,ISINF,2,MEDIAN",
+		"67,42,13,2,MEDIAN,-": "39.5",
+	}
+	for input, output := range list {
+		exp, err := New(input)
+		if err != nil {
+			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
+		}
+		if exp.String() != output {
+			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, exp.String(), output)
+		}
+	}
+}

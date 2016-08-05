@@ -54,6 +54,7 @@ var arity = map[string]arityTuple{
 	"LT":       {2, 0, 0, 2, 2},
 	"MAX":      {2, 0, 0, 2, 2},
 	"MAXNAN":   {2, 0, 0, 2, 2},
+	"MEDIAN":   {1, 1, 1, 0, 0}, // other operands must be floats
 	"MIN":      {2, 0, 0, 2, 2},
 	"MINNAN":   {2, 0, 0, 2, 2},
 	"NE":       {2, 0, 0, 2, 2},
@@ -1001,6 +1002,44 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 									}
 								} else {
 									return newErrSyntax("%s operand specifies %q label, which is not a series of numbers: %T", token, label, s)
+								}
+							}
+						case "MEDIAN":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							count = int(e.scratch[indexOfFirstArg].(float64))
+							if count > e.scratchHead-1 {
+								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+							}
+							if count == 1 {
+								// pin-hole optimization for 1 item
+								e.scratchHead -= 1
+								e.scratch[e.scratchHead] = e.scratch[argIdx]
+								_, e.isFloat[e.scratchHead] = e.scratch[argIdx].(float64)
+								stackUpdated = true
+							} else {
+								items := make([]float64, 0, count)
+								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+									if !e.isFloat[argIdx] {
+										cannotSimplify = true
+										break
+									}
+									items = append(items, e.scratch[argIdx].(float64))
+								}
+								if !cannotSimplify {
+									sort.Float64s(items)
+									e.scratchHead -= 1 + count
+									middle := count / 2
+									// even or odd?
+									if count%2 == 0 {
+										e.scratch[e.scratchHead] = (items[middle-1] + items[middle]) / 2
+									} else {
+										e.scratch[e.scratchHead] = items[middle]
+									}
+									e.isFloat[e.scratchHead] = true
+									e.scratchHead++
+									stackUpdated = true
 								}
 							}
 						}

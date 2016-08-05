@@ -54,6 +54,7 @@ provide them in the form of a map of string variable names to their respective n
  * AVG (pop count of items, then compute avg, ignoring all UNK)
  * CEIL
  * FLOOR
+ * MEDIAN
 
 ### Boolean Functions
 
@@ -119,7 +120,6 @@ of a set of bindings. See below for more information.
 
 The following features have yet to be implemented in this library.
 
- * MEDIAN
  * NEWDAY
  * NEWMONTH
  * NEWWEEK
