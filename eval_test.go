@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"testing"
+	"time"
 )
 
 func TestNewExpressionEmptyString(t *testing.T) {
@@ -265,7 +266,7 @@ func TestNewExpressionCOPY(t *testing.T) {
 }
 
 func TestNewExpressionCOUNT(t *testing.T) {
-	t.Logf("TODO")
+	t.Skip("TODO")
 	errors := map[string]string{
 	//
 	}
@@ -485,9 +486,11 @@ func TestNewExpressionIF(t *testing.T) {
 		"1,0,EQ,ab,bc,IF": "bc",
 		"1,1,EQ,ab,bc,IF": "ab",
 		"qps,1,0,IF":      "qps,1,0,IF", // when predicate is a variable
-		// TODO: additional optimizations
-		// "ab,0,EQ,-2,ab,IF,IF": "ab,0,EQ,-2,ab,IF,IF",
-		// "cd,-2,ab,IF,IF":      "cd,-2,ab,IF,IF",
+		"1,2,+,4,5,IF":    "4",
+		"1,a,3,+,5,IF":    "1,a,3,+,5,IF",
+		"7,2,4,+,5,IF":    "6",
+		"7,a,4,+,5,IF":    "7,a,4,+,5,IF",
+		"a,7,+,3,5,IF":    "a,7,+,3,5,IF",
 	}
 	for input, output := range list {
 		exp, err := New(input)
@@ -937,9 +940,9 @@ func TestNewExpressionSORT(t *testing.T) {
 }
 
 func TestNewExpressionTREND(t *testing.T) {
-	t.Logf("TODO")
 	errors := map[string]string{
-	//
+		"a,0,TREND":  "syntax error : TREND operator requires positive finite integer: 0",
+		"a,-1,TREND": "syntax error : TREND operator requires positive finite integer: -1",
 	}
 	for i, e := range errors {
 		if _, err := New(i); err == nil || err.Error() != e {
@@ -947,7 +950,7 @@ func TestNewExpressionTREND(t *testing.T) {
 		}
 	}
 	list := map[string]string{
-	//
+		"a,5,TREND": "a,5,TREND",
 	}
 	for input, output := range list {
 		exp, err := New(input)
@@ -961,9 +964,9 @@ func TestNewExpressionTREND(t *testing.T) {
 }
 
 func TestNewExpressionTRENDNAN(t *testing.T) {
-	t.Logf("TODO")
 	errors := map[string]string{
-	//
+		"a,0,TRENDNAN":  "syntax error : TRENDNAN operator requires positive finite integer: 0",
+		"a,-1,TRENDNAN": "syntax error : TRENDNAN operator requires positive finite integer: -1",
 	}
 	for i, e := range errors {
 		if _, err := New(i); err == nil || err.Error() != e {
@@ -971,7 +974,7 @@ func TestNewExpressionTRENDNAN(t *testing.T) {
 		}
 	}
 	list := map[string]string{
-	//
+		"a,5,TRENDNAN": "a,5,TRENDNAN",
 	}
 	for input, output := range list {
 		exp, err := New(input)
@@ -1015,7 +1018,7 @@ func TestPartialApplication(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bindings := make(map[string]float64)
+	bindings := make(map[string]interface{})
 
 	bindings["b"] = 2
 	if exp, err = exp.Partial(bindings); err != nil {
@@ -1068,7 +1071,7 @@ func TestEvaluateWithBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bindings := map[string]float64{
+	bindings := map[string]interface{}{
 		"a": float64(1),
 		"b": float64(2),
 		"c": float64(3),
@@ -1089,11 +1092,12 @@ func TestEvaluateWithoutBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bindings := make(map[string]float64)
+	bindings := make(map[string]interface{})
+
 	value, err := exp.Evaluate(bindings)
-	if _, ok := err.(ErrOpenVariables); err == nil || !ok {
+	if _, ok := err.(ErrOpenBindings); err == nil || !ok {
 		want := []string{"a", "b", "c", "d"}
-		t.Errorf("Actual: %#v; Expected: %#v", err, ErrOpenVariables(want))
+		t.Errorf("Actual: %#v; Expected: %#v", err, ErrOpenBindings(want))
 	}
 	if want := float64(0); value != want {
 		t.Errorf("Actual: %#v; Expected: %#v", value, want)
@@ -1109,9 +1113,308 @@ func TestPartialIgnoresNOWInBindings(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
 		}
-		exp, err = exp.Partial(map[string]float64{"NOW": 12})
+		exp, err = exp.Partial(map[string]interface{}{"NOW": 12})
 		if exp.String() != output {
 			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, exp.String(), output)
 		}
+	}
+}
+
+func TestEvaluateTREND(t *testing.T) {
+	exp, err := New("sam,10,TREND", SecondsPerInterval(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bindings := map[string]interface{}{
+		"sam": []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, math.NaN()},
+	}
+	value, err := exp.Evaluate(bindings)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if !math.IsNaN(value) {
+		t.Errorf("Actual: %#v; Expected: %#v", value, math.NaN())
+	}
+}
+
+func TestEvaluateTRENDNotEnoughValues(t *testing.T) {
+	exp, err := New("sam,10,TREND", SecondsPerInterval(1))
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	bindings := map[string]interface{}{
+		"sam": []interface{}{1, 2},
+	}
+	_, err = exp.Evaluate(bindings)
+	if err == nil || err.Error() != "syntax error : TREND operand specifies 10 values, but only 2 available" {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+}
+
+func TestEvaluateTRENDNotBoundToFloatSlice(t *testing.T) {
+	exp, err := New("sam,10,TREND", SecondsPerInterval(1))
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	bindings := map[string]interface{}{
+		"sam": 134,
+	}
+	_, err = exp.Evaluate(bindings)
+	if err == nil || err.Error() != "syntax error : TREND operator requires label but found float64: 134" {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+}
+
+func TestEvaluateTRENDNAN(t *testing.T) {
+	exp, err := New("sam,10,TRENDNAN", SecondsPerInterval(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bindings := map[string]interface{}{
+		"sam": []float64{1, 2, math.NaN(), 4, 5, math.NaN(), 7, 8, 9, 10},
+	}
+	value, err := exp.Evaluate(bindings)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if value != 5.75 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 5.75)
+	}
+}
+
+func TestEvaluateTRENDNANNotEnoughValues(t *testing.T) {
+	exp, err := New("sam,10,TRENDNAN", SecondsPerInterval(1))
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	bindings := map[string]interface{}{
+		"sam": []interface{}{1, 2},
+	}
+	_, err = exp.Evaluate(bindings)
+	if err == nil || err.Error() != "syntax error : TRENDNAN operand specifies 10 values, but only 2 available" {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+}
+
+func TestEvaluateTRENDNANNotBoundToFloatSlice(t *testing.T) {
+	exp, err := New("sam,10,TRENDNAN", SecondsPerInterval(1))
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	bindings := map[string]interface{}{
+		"sam": 134,
+	}
+	_, err = exp.Evaluate(bindings)
+	if err == nil || err.Error() != "syntax error : TRENDNAN operator requires label but found float64: 134" {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+}
+
+// evaluate is able to coerce slices of any number type to slices of float64 values
+
+func TestEvaluateTRENDNANSliceOfEmptyInterface(t *testing.T) {
+	exp, err := New("sam,10,TRENDNAN", SecondsPerInterval(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bindings := map[string]interface{}{
+		"sam": []interface{}{1, 2, math.NaN(), 4, 5, math.NaN(), 7, 8, 9, 10},
+	}
+	value, err := exp.Evaluate(bindings)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if value != 5.75 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 5.75)
+	}
+}
+
+func TestEvaluateTRENDNANSliceOfFloat64(t *testing.T) {
+	exp, err := New("sam,10,TRENDNAN", SecondsPerInterval(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bindings := map[string]interface{}{
+		"sam": []float64{1, 2, math.NaN(), 4, 5, math.NaN(), 7, 8, 9, 10},
+	}
+	value, err := exp.Evaluate(bindings)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if value != 5.75 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 5.75)
+	}
+}
+
+func TestEvaluateTRENDNANSliceOfFloat32(t *testing.T) {
+	exp, err := New("sam,10,TRENDNAN", SecondsPerInterval(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bindings := map[string]interface{}{
+		"sam": []float32{1, 2, float32(math.NaN()), 4, 5, float32(math.NaN()), 7, 8, 9, 10},
+	}
+	value, err := exp.Evaluate(bindings)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if value != 5.75 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 5.75)
+	}
+}
+
+func TestEvaluateTRENDNANSliceOfInt(t *testing.T) {
+	exp, err := New("sam,10,TRENDNAN", SecondsPerInterval(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bindings := map[string]interface{}{
+		"sam": []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+	}
+	value, err := exp.Evaluate(bindings)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if value != 5.5 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 5.5)
+	}
+}
+
+func TestEvaluateTRENDNANSliceOfInt64(t *testing.T) {
+	exp, err := New("sam,10,TRENDNAN", SecondsPerInterval(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bindings := map[string]interface{}{
+		"sam": []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+	}
+	value, err := exp.Evaluate(bindings)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if value != 5.5 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 5.5)
+	}
+}
+
+func TestEvaluateTRENDNANSliceOfInt32(t *testing.T) {
+	exp, err := New("sam,10,TRENDNAN", SecondsPerInterval(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bindings := map[string]interface{}{
+		"sam": []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+	}
+	value, err := exp.Evaluate(bindings)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if value != 5.5 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 5.5)
+	}
+}
+
+// STEPWIDTH
+
+func TestEvaluateSTEPWIDTHDefault(t *testing.T) {
+	exp, err := New("STEPWIDTH")
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := exp.Evaluate(nil)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if value != 300 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 300)
+	}
+}
+
+func TestEvaluateSTEPWIDTHCustom(t *testing.T) {
+	exp, err := New("STEPWIDTH", SecondsPerInterval(3600))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := exp.Evaluate(nil)
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if value != 3600 {
+		t.Errorf("Actual: %#v; Expected: %#v", value, 3600)
+	}
+}
+
+// TIME
+
+func TestEvaluateTIMEWithoutTime(t *testing.T) {
+	exp, err := New("TIME")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = exp.Evaluate(nil)
+	if err == nil || err.Error() != "open bindings: TIME" {
+		t.Errorf("Actual: %s; Expected: %#v", err, "open bindings: TIME")
+	}
+}
+
+func TestEvaluateTIMEWithTime(t *testing.T) {
+	exp, err := New("TIME")
+	if err != nil {
+		t.Fatal(err)
+	}
+	epoch := 1234567890
+	value, err := exp.Evaluate(map[string]interface{}{
+		"TIME": epoch,
+	})
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if int(value) != epoch {
+		t.Errorf("Actual: %#v; Expected: %#v", int(value), epoch)
+	}
+}
+
+// LTIME
+
+func TestEvaluateLTIMEWithoutTime(t *testing.T) {
+	exp, err := New("LTIME")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = exp.Evaluate(nil)
+	if err == nil || err.Error() != "open bindings: TIME" {
+		t.Errorf("Actual: %s; Expected: %#v", err, "open bindings: TIME")
+	}
+}
+
+func TestEvaluateLTIMEWithTime(t *testing.T) {
+	exp, err := New("LTIME")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	epoch := 1234567890
+	utcTime := time.Unix(int64(epoch), 0)
+	_, offset := utcTime.Zone()
+	expected := epoch + offset
+
+	value, err := exp.Evaluate(map[string]interface{}{
+		"TIME": epoch,
+	})
+
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+
+	if int(value) != expected {
+		t.Errorf("Actual: %#v; Expected: %#v", int(value), expected)
 	}
 }

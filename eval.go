@@ -3,13 +3,17 @@ package gorpn
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
-const DefaultDelimeter = ","
+const (
+	DefaultDelimiter          = ","
+	DefaultSecondsPerInterval = 300
+)
 
 // type arityTuple [3]int
 type arityTuple struct {
@@ -19,48 +23,50 @@ type arityTuple struct {
 // arity resolves to the number of items an operation must pop, and
 // how many of those must be floats
 var arity = map[string]arityTuple{
-	"%":       {2, 2, 2, 0, 0},
-	"*":       {2, 2, 2, 0, 0},
-	"+":       {2, 2, 2, 0, 0},
-	"-":       {2, 2, 2, 0, 0},
-	"/":       {2, 2, 2, 0, 0},
-	"ABS":     {1, 1, 1, 0, 0},
-	"ADDNAN":  {2, 2, 2, 0, 0},
-	"ATAN":    {1, 1, 1, 0, 0},
-	"ATAN2":   {2, 2, 2, 0, 0},
-	"AVG":     {1, 1, 1, 0, 0}, // other operands must be floats
-	"CEIL":    {1, 1, 1, 0, 0},
-	"COPY":    {1, 1, 1, 0, 0}, // other operands cannot be operators
-	"COS":     {1, 1, 1, 0, 0},
-	"DEG2RAD": {1, 1, 1, 0, 0},
-	"DEPTH":   {0, 0, 0, 0, 0},
-	"DUP":     {1, 0, 0, 1, 1}, // equivalent to: 1,COPY
-	"EQ":      {2, 0, 0, 2, 2},
-	"EXC":     {2, 0, 0, 2, 2}, // equivalent to: 2,REV
-	"EXP":     {1, 1, 1, 0, 0},
-	"FLOOR":   {1, 1, 1, 0, 0},
-	"GE":      {2, 0, 0, 2, 2},
-	"GT":      {2, 0, 0, 2, 2},
-	"IF":      {3, 3, 1, 2, 2}, // a,b,c,IF
-	"INDEX":   {1, 1, 1, 0, 0}, // other operands cannot be operators
-	"ISINF":   {1, 1, 1, 0, 0},
-	"LE":      {2, 0, 0, 2, 2},
-	"LIMIT":   {3, 3, 3, 0, 0},
-	"LOG":     {1, 1, 1, 0, 0},
-	"LT":      {2, 0, 0, 2, 2},
-	"MAX":     {2, 0, 0, 2, 2},
-	"MAXNAN":  {2, 0, 0, 2, 2},
-	"MIN":     {2, 0, 0, 2, 2},
-	"MINNAN":  {2, 0, 0, 2, 2},
-	"NE":      {2, 0, 0, 2, 2},
-	"POP":     {1, 0, 0, 0, 0},
-	"RAD2DEG": {1, 1, 1, 0, 0},
-	"REV":     {1, 1, 1, 0, 0}, // other operands cannot be operators
-	"ROLL":    {2, 2, 2, 0, 0}, // n,m,ROLL (rotate the top n elements of the stack by m)
-	"SIN":     {1, 1, 1, 0, 0},
-	"SORT":    {1, 1, 1, 0, 0}, // other operands must be floats
-	"SQRT":    {1, 1, 1, 0, 0},
-	"UN":      {1, 1, 1, 0, 0},
+	"%":        {2, 2, 2, 0, 0},
+	"*":        {2, 2, 2, 0, 0},
+	"+":        {2, 2, 2, 0, 0},
+	"-":        {2, 2, 2, 0, 0},
+	"/":        {2, 2, 2, 0, 0},
+	"ABS":      {1, 1, 1, 0, 0},
+	"ADDNAN":   {2, 2, 2, 0, 0},
+	"ATAN":     {1, 1, 1, 0, 0},
+	"ATAN2":    {2, 2, 2, 0, 0},
+	"AVG":      {1, 1, 1, 0, 0}, // other operands must be floats
+	"CEIL":     {1, 1, 1, 0, 0},
+	"COPY":     {1, 1, 1, 0, 0}, // other operands cannot be operators
+	"COS":      {1, 1, 1, 0, 0},
+	"DEG2RAD":  {1, 1, 1, 0, 0},
+	"DEPTH":    {0, 0, 0, 0, 0},
+	"DUP":      {1, 0, 0, 1, 1}, // equivalent to: 1,COPY
+	"EQ":       {2, 0, 0, 2, 2},
+	"EXC":      {2, 0, 0, 2, 2}, // equivalent to: 2,REV
+	"EXP":      {1, 1, 1, 0, 0},
+	"FLOOR":    {1, 1, 1, 0, 0},
+	"GE":       {2, 0, 0, 2, 2},
+	"GT":       {2, 0, 0, 2, 2},
+	"IF":       {3, 3, 1, 2, 2}, // a,b,c,IF
+	"INDEX":    {1, 1, 1, 0, 0}, // other operands cannot be operators
+	"ISINF":    {1, 1, 1, 0, 0},
+	"LE":       {2, 0, 0, 2, 2},
+	"LIMIT":    {3, 3, 3, 0, 0},
+	"LOG":      {1, 1, 1, 0, 0},
+	"LT":       {2, 0, 0, 2, 2},
+	"MAX":      {2, 0, 0, 2, 2},
+	"MAXNAN":   {2, 0, 0, 2, 2},
+	"MIN":      {2, 0, 0, 2, 2},
+	"MINNAN":   {2, 0, 0, 2, 2},
+	"NE":       {2, 0, 0, 2, 2},
+	"POP":      {1, 0, 0, 0, 0},
+	"RAD2DEG":  {1, 1, 1, 0, 0},
+	"REV":      {1, 1, 1, 0, 0}, // other operands cannot be operators
+	"ROLL":     {2, 2, 2, 0, 0}, // n,m,ROLL (rotate the top n elements of the stack by m)
+	"SIN":      {1, 1, 1, 0, 0},
+	"SORT":     {1, 1, 1, 0, 0}, // other operands must be floats
+	"SQRT":     {1, 1, 1, 0, 0},
+	"TREND":    {2, 1, 1, 2, 1}, // label,count,TREND
+	"TRENDNAN": {2, 1, 1, 2, 1}, // label,count,TRENDNAN
+	"UN":       {1, 1, 1, 0, 0},
 }
 
 // ExpectedFloat error is returned if a different data type is
@@ -74,14 +80,26 @@ func (e ExpectedFloat) Error() string {
 	return fmt.Sprintf("expected float: %T", e.v)
 }
 
-// ErrOpenVariables error is returned when one or more open variables
+// ErrBadBindingType error is returned when one or more bindings have
+// a type that is neither a float64 nor a slice of float64 values.
+type ErrBadBindingType struct {
+	t string
+}
+
+// Error returns the error string representation for ErrBadBindingType
+// errors.
+func (e ErrBadBindingType) Error() string {
+	return "bad binding type for " + string(e.t)
+}
+
+// ErrOpenBindings error is returned when one or more open bindings
 // remain when evaluating a RPN Expression.
-type ErrOpenVariables []string
+type ErrOpenBindings []string
 
 // Error returns the error string representation for ErrOpenVariables
 // errors.
-func (e ErrOpenVariables) Error() string {
-	return "open variables: " + strings.Join(e, ",")
+func (e ErrOpenBindings) Error() string {
+	return "open bindings: " + strings.Join(e, ",")
 }
 
 // ErrSyntax error is returned if the specified RPN expression
@@ -125,10 +143,11 @@ func newErrSyntax(a ...interface{}) ErrSyntax {
 
 // Expression represents a RPN expression.
 type Expression struct {
-	delimeter     string
-	usesTime      bool
-	tokens        []interface{} // components of the expression
-	openVariables []string      // duplicates may occur
+	delimiter                string
+	openBindings             map[string]int // count of number of instances
+	intervalsPerSecond       float64
+	tokens                   []interface{} // components of the expression
+	performTimeSubstitutions bool
 	// work area
 	scratchSize int           // how much work area this needs
 	scratchHead int           // index of top of scratch and isFloat slices
@@ -141,20 +160,23 @@ func New(someExpression string, setters ...ExpressionSetter) (*Expression, error
 	if someExpression == "" {
 		return nil, ErrSyntax{"empty expression", nil}
 	}
-	e := &Expression{delimeter: DefaultDelimeter}
+	e := &Expression{
+		delimiter:          DefaultDelimiter,
+		intervalsPerSecond: 1 / float64(DefaultSecondsPerInterval),
+	}
 	for _, setter := range setters {
 		if err := setter(e); err != nil {
 			return nil, err
 		}
 	}
-	tokens := strings.Split(someExpression, e.delimeter)
+	tokens := strings.Split(someExpression, e.delimiter)
 	e.scratchSize = len(tokens)
 
 	e.tokens = make([]interface{}, e.scratchSize)
 	for idx, token := range tokens {
 		switch token {
-		case "NOW":
-			e.usesTime = true
+		case "NOW", "TIME", "LTIME":
+			e.performTimeSubstitutions = true
 		case "DUP":
 			e.scratchSize++
 		}
@@ -163,18 +185,27 @@ func New(someExpression string, setters ...ExpressionSetter) (*Expression, error
 	// scratchSize may be larger than it was before above loop
 	e.scratch = make([]interface{}, e.scratchSize)
 	e.isFloat = make([]bool, e.scratchSize)
-	return e.Partial(make(map[string]float64))
+	return e.Partial(nil)
 }
 
 // ExpressionSetter represents a function that modifies an RPN
 // Expression.
 type ExpressionSetter func(*Expression) error
 
-// Delimeter allows changing the expected delimeter for an RPN
-// Expression from the default delimeter, the comma.
-func Delimeter(someByte string) ExpressionSetter {
+// Delimiter allows changing the expected delimiter for an RPN
+// Expression from the default delimiter, the comma.
+func Delimiter(someByte string) ExpressionSetter {
 	return func(e *Expression) error {
-		e.delimeter = someByte
+		e.delimiter = someByte
+		return nil
+	}
+}
+
+// SecondsPerInterval allows changing the expected number of seconds per interval to be used when
+// evaluating an RPN Expression from the default value of 300..
+func SecondsPerInterval(seconds int) ExpressionSetter {
+	return func(e *Expression) error {
+		e.intervalsPerSecond = 1 / float64(seconds)
 		return nil
 	}
 }
@@ -202,45 +233,63 @@ func (e Expression) String() string {
 			strs[idx] = fmt.Sprint(v)
 		}
 	}
-	return strings.Join(strs, e.delimeter)
+	return strings.Join(strs, e.delimiter)
 }
 
 // Partial creates a new Expression by partial application of the
 // parameter bindings. With the additional bindings, it attempts to
 // further simplify the expression.
-func (e *Expression) Partial(bindings map[string]float64) (*Expression, error) {
+func (e *Expression) Partial(bindings map[string]interface{}) (*Expression, error) {
+	// NOTE: We leave exp.performTimeSubstitutions as its default boolean value of false,
+	// preventing time substitutions from being made during this simplify operation
 	exp := &Expression{
-		delimeter:   e.delimeter,
-		tokens:      make([]interface{}, len(e.tokens)),
-		scratchSize: e.scratchSize,
-		scratch:     make([]interface{}, e.scratchSize),
-		isFloat:     make([]bool, e.scratchSize),
+		delimiter:          e.delimiter,
+		intervalsPerSecond: e.intervalsPerSecond,
+		tokens:             make([]interface{}, len(e.tokens)),
+		scratchSize:        e.scratchSize,
+		scratch:            make([]interface{}, e.scratchSize),
+		isFloat:            make([]bool, e.scratchSize),
 	}
 	copy(exp.tokens, e.tokens)
 
-	err := exp.simplify(bindings)
-	switch err.(type) {
-	case nil:
-		// promote our work area to our new stored program
-		exp.tokens = exp.tokens[:exp.scratchHead] // shrink tokens first
-		copy(exp.tokens, exp.scratch)
-
-		exp.usesTime = e.usesTime // set after simplify() to prevent calculating NOW
-		return exp, nil
+	if err := exp.simplify(bindings); err != nil {
+		return nil, err
 	}
-	return nil, err
+
+	// exp will need to know about time when Evaluate is called on it
+	exp.performTimeSubstitutions = e.performTimeSubstitutions
+
+	// promote what's remaining in work area to new simplified stored program
+	exp.tokens = exp.tokens[:exp.scratchHead] // first, shrink tokens slice
+	copy(exp.tokens, exp.scratch)             // then copy
+
+	return exp, nil
 }
 
 // Evaluate evaluates the Expression after applying the parameter
 // bindings.
-func (e *Expression) Evaluate(bindings map[string]float64) (float64, error) {
-	err := e.simplify(bindings)
-	if err != nil {
+func (e *Expression) Evaluate(bindings map[string]interface{}) (float64, error) {
+	var err error
+
+	if err = e.simplify(bindings); err != nil {
 		return 0, err
 	}
-	if e.openVariables != nil {
-		return 0, ErrOpenVariables(e.openVariables)
+
+	var openBindings []string
+	for k, v := range e.openBindings {
+		if v > 0 {
+			if k == "LTIME" {
+				// NOTE: LTIME token actually requires TIME to be bound
+				openBindings = append(openBindings, "TIME")
+			} else {
+				openBindings = append(openBindings, k)
+			}
+		}
 	}
+	if len(openBindings) > 0 {
+		return 0, ErrOpenBindings(openBindings)
+	}
+
 	if e.scratchHead != 1 {
 		return 0, newErrSyntax("extra parameters: %v", e.scratch)
 	}
@@ -253,17 +302,17 @@ func (e *Expression) Evaluate(bindings map[string]float64) (float64, error) {
 
 // Valid returns true iff Expression is valid RPN.
 func (e Expression) Valid() bool {
-	return e.valid(make(map[string]float64))
+	return e.valid(nil)
 }
 
-func (e Expression) valid(bindings map[string]float64) bool {
+func (e Expression) valid(bindings map[string]interface{}) bool {
 	err := e.simplify(bindings)
 	if err != nil {
 		return false
 	}
-	if e.openVariables != nil {
-		for _, item := range e.openVariables {
-			bindings[item] = 0
+	if len(e.openBindings) > 0 {
+		for k := range e.openBindings {
+			bindings[k] = 0 // FIXME: some bindings will need series rather than number
 		}
 		return e.valid(bindings)
 	}
@@ -273,23 +322,43 @@ func (e Expression) valid(bindings map[string]float64) bool {
 	return e.isFloat[0]
 }
 
-func (e *Expression) simplify(bindings map[string]float64) error {
+func (e *Expression) simplify(bindings map[string]interface{}) error {
+	// NOTE: scratch is not local variable so Partial has access to it
+	// TODO: change method signature to pass it back and make it local
+
+	var err error
+
+	bindings, err = coerceMapValuesToFloat64(bindings)
+	if err != nil {
+		return err
+	}
+
 	// with a fresh start comes fresh workspace
 	e.scratchHead = 0
-	e.openVariables = nil
+	e.openBindings = make(map[string]int)
 
-	// heisenberg principle, realized: it takes take to observe the time, so do it only once
-	var now interface{}
-	var nowFloat bool
-	if e.usesTime {
+	// heisenberg principle, realized: it takes time to observe the time, so do it only once
+	var now interface{} = "NOW"
+	var utcTime interface{} = "TIME"
+	var localTime interface{} = "LTIME"
+	var isNowFloat, isTimeFloat bool
+
+	if e.performTimeSubstitutions {
 		now = float64(time.Now().Unix())
-		nowFloat = true
-	} else {
-		now = "NOW"
+		isNowFloat = true
+
+		if tm, ok := bindings["TIME"]; ok {
+			if secondsSinceEpoch, ok := tm.(float64); ok {
+				lTime := time.Unix(int64(secondsSinceEpoch), 0)
+				utcTime = float64(lTime.Unix())
+				_, utcOffsetSeconds := lTime.Zone()
+				localTime = utcTime.(float64) + float64(utcOffsetSeconds)
+				isTimeFloat = true
+			}
+		}
 	}
 
 	// variables outside of loop to reduce allocations
-	var err error
 	var cannotSimplify, isFloat, ok, stackUpdated, firstNaN, secondNaN bool
 	var total, value float64
 	var argIdx, count, indexOfFirstArg, itemIdx, tokIdx, used int
@@ -335,7 +404,28 @@ func (e *Expression) simplify(bindings map[string]float64) error {
 				e.scratchHead++
 			case "NOW":
 				e.scratch[e.scratchHead] = now
-				e.isFloat[e.scratchHead] = nowFloat
+				e.isFloat[e.scratchHead] = isNowFloat
+				if !isNowFloat {
+					e.openBindings[token] = e.openBindings[token] + 1
+				}
+				e.scratchHead++
+			case "LTIME":
+				e.scratch[e.scratchHead] = localTime
+				e.isFloat[e.scratchHead] = isTimeFloat
+				if !isTimeFloat {
+					e.openBindings[token] = e.openBindings[token] + 1
+				}
+				e.scratchHead++
+			case "STEPWIDTH":
+				e.scratch[e.scratchHead] = 1 / e.intervalsPerSecond
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "TIME":
+				e.scratch[e.scratchHead] = utcTime
+				e.isFloat[e.scratchHead] = isTimeFloat
+				if !isTimeFloat {
+					e.openBindings[token] = e.openBindings[token] + 1
+				}
 				e.scratchHead++
 			case "":
 				return newErrSyntax("empty token")
@@ -351,8 +441,9 @@ func (e *Expression) simplify(bindings map[string]float64) error {
 					}
 					indexOfFirstArg = e.scratchHead - opArity.popCount
 
-					// fmt.Println("FLOAT CHECK: e.tokens:", e.tokens, "e.scratch:", e.scratch[:e.head], "floatOffset:", opArity.floatOffset, "floatCount:", opArity.floatCount)
+					// fmt.Println("FLOAT CHECK: e.tokens:", e.tokens, "e.scratch:", e.scratch[:e.scratchHead], "opArity:", opArity, "floatOffset:", opArity.floatOffset, "floatCount:", opArity.floatCount)
 					for argIdx = e.scratchHead - opArity.floatOffset; argIdx < e.scratchHead-opArity.floatOffset+opArity.floatCount; argIdx++ {
+						// fmt.Printf("argIndex: %d; scratch: %v\n", argIdx, e.scratch[argIdx])
 						if _, isFloat = e.scratch[argIdx].(float64); !isFloat {
 							// fmt.Println("found non float:", e.scratch[argIdx])
 							cannotSimplify = true
@@ -360,9 +451,9 @@ func (e *Expression) simplify(bindings map[string]float64) error {
 						}
 					}
 
-					// fmt.Println("NOT OPERATOR CHECK: e.tokens:", e.tokens, "e.scratch:", e.scratch[:e.head], "opArity.nonOperatorOffset:", opArity.nonOperatorOffset, "opArity.nonOperatorCount:", opArity.nonOperatorCount)
+					// fmt.Println("NOT OPERATOR CHECK: e.tokens:", e.tokens, "e.scratch:", e.scratch[:e.scratchHead], "opArity.nonOperatorOffset:", opArity.nonOperatorOffset, "opArity.nonOperatorCount:", opArity.nonOperatorCount)
 					for argIdx = e.scratchHead - opArity.nonOperatorOffset; argIdx < e.scratchHead-opArity.nonOperatorOffset+opArity.nonOperatorCount; argIdx++ {
-						// fmt.Println("e.tokens:", e.tokens, "argIdx:", argIdx)
+						// fmt.Printf("argIndex: %d; scratch: %v\n", argIdx, e.scratch[argIdx])
 						if !e.isFloat[argIdx] {
 							result = e.scratch[argIdx]
 							if _, ok = arity[result.(string)]; ok {
@@ -765,7 +856,7 @@ func (e *Expression) simplify(bindings map[string]float64) error {
 								}
 								stackUpdated = true
 							}
-						case "ROLL": // rotate the top n elements of the stack by m
+						case "ROLL": // n,m,ROLL -- rotate the top n elements of the stack by m
 							// n
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
@@ -830,6 +921,88 @@ func (e *Expression) simplify(bindings map[string]float64) error {
 								e.scratchHead-- // drop the count
 								stackUpdated = true
 							}
+						case "TREND": // label,count,TREND
+							// get the count
+							v := e.scratch[indexOfFirstArg+1].(float64)
+							if math.IsNaN(v) || math.IsInf(v, 1) || math.IsInf(v, -1) || v <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, v)
+							}
+							count = int(math.Ceil(v * e.intervalsPerSecond))
+							// get series label
+							label, ok := e.scratch[indexOfFirstArg].(string)
+							if !ok {
+								return newErrSyntax("%s operator requires label but found %T: %v", token, e.scratch[indexOfFirstArg], e.scratch[indexOfFirstArg])
+							}
+							// log.Printf("label: %q\n", label)
+							series, ok := bindings[label]
+							if !ok {
+								// log.Printf("cannot find label binding: %q", label)
+								cannotSimplify = true
+							} else {
+								if s, ok := series.([]float64); ok {
+									// log.Printf("label bound to []float64")
+									if count > len(s) {
+										return newErrSyntax("%s operand specifies %d values, but only %d available", token, count, len(s))
+									} else {
+										e.openBindings[label] = e.openBindings[label] - 1
+										total = 0
+										used = 0
+										for argIdx = len(s) - count; argIdx < len(s); argIdx++ {
+											total += s[argIdx]
+											used++
+										}
+										e.scratchHead -= opArity.popCount
+										e.scratch[e.scratchHead] = total / float64(used)
+										e.isFloat[e.scratchHead] = true
+										e.scratchHead++
+										stackUpdated = true
+									}
+								} else {
+									return newErrSyntax("%s operand specifies %q label, which is not a series of numbers: %T", token, label, s)
+								}
+							}
+						case "TRENDNAN": // label,count,TRENDNAN
+							// get the count
+							v := e.scratch[indexOfFirstArg+1].(float64)
+							if math.IsNaN(v) || math.IsInf(v, 1) || math.IsInf(v, -1) || v <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, v)
+							}
+							count = int(math.Ceil(v * e.intervalsPerSecond))
+							// get series label
+							label, ok := e.scratch[indexOfFirstArg].(string)
+							if !ok {
+								return newErrSyntax("%s operator requires label but found %T: %v", token, e.scratch[indexOfFirstArg], e.scratch[indexOfFirstArg])
+							}
+							// log.Printf("label: %q\n", label)
+							series, ok := bindings[label]
+							if !ok {
+								// log.Printf("cannot find label binding: %q", label)
+								cannotSimplify = true
+							} else {
+								if s, ok := series.([]float64); ok {
+									// log.Printf("label bound to []float64")
+									if count > len(s) {
+										return newErrSyntax("%s operand specifies %d values, but only %d available", token, count, len(s))
+									} else {
+										e.openBindings[label] = e.openBindings[label] - 1
+										total = 0
+										used = 0
+										for argIdx = len(s) - count; argIdx < len(s); argIdx++ {
+											if !math.IsNaN(s[argIdx]) {
+												total += s[argIdx]
+												used++
+											}
+										}
+										e.scratchHead -= opArity.popCount
+										e.scratch[e.scratchHead] = total / float64(used)
+										e.isFloat[e.scratchHead] = true
+										e.scratchHead++
+										stackUpdated = true
+									}
+								} else {
+									return newErrSyntax("%s operand specifies %q label, which is not a series of numbers: %T", token, label, s)
+								}
+							}
 						}
 					}
 
@@ -849,22 +1022,24 @@ func (e *Expression) simplify(bindings map[string]float64) error {
 					e.scratch[e.scratchHead] = value
 					e.isFloat[e.scratchHead] = true
 					e.scratchHead++
-				} else if value, ok = bindings[token]; ok {
-					// token is a symbol
-					e.scratch[e.scratchHead] = value
-					e.isFloat[e.scratchHead] = true
-					e.scratchHead++
-					// } else if _, ok = series[token]; ok {
-					// 	// token is a label for a series
-					// 	e.scratch[e.head] = token
-					// 	e.isFloat[e.head] = false
-					// 	e.head++
+				} else if val, ok := bindings[token]; ok {
+					// token is a symbol to a binding
+					switch v := val.(type) {
+					case float64:
+						// token is a symbol that binds to a variable
+						e.scratch[e.scratchHead] = v
+						e.isFloat[e.scratchHead] = true
+						e.scratchHead++
+					case []float64:
+						// token is a symbol that binds to a series
+						e.openBindings[token] = e.openBindings[token] + 1
+						e.scratch[e.scratchHead] = token
+						e.isFloat[e.scratchHead] = false
+						e.scratchHead++
+					}
 				} else {
 					// cannot resolve token with the current bindings
-					if e.openVariables == nil {
-						e.openVariables = make([]string, 0)
-					}
-					e.openVariables = append(e.openVariables, token)
+					e.openBindings[token] = e.openBindings[token] + 1
 					e.scratch[e.scratchHead] = token
 					e.isFloat[e.scratchHead] = false
 					e.scratchHead++
@@ -875,4 +1050,82 @@ func (e *Expression) simplify(bindings map[string]float64) error {
 		}
 	}
 	return nil
+}
+
+func coerceMapValuesToFloat64(bindings map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	newBindings := make(map[string]interface{})
+
+	for key, value := range bindings {
+		switch reflect.TypeOf(value).Kind() {
+		case reflect.Slice:
+			newBindings[key], err = coerceValuesToFloat64(value)
+			if err != nil {
+				return nil, ErrBadBindingType{fmt.Sprintf("%q: %q", key, err.(ErrBadBindingType).t)}
+			}
+		default:
+			newBindings[key], err = coerceValueToFloat64(value)
+			if err != nil {
+				return nil, ErrBadBindingType{fmt.Sprintf("%q: %q", key, err.(ErrBadBindingType).t)}
+			}
+		}
+	}
+
+	return newBindings, nil
+}
+
+func coerceValuesToFloat64(value interface{}) ([]float64, error) {
+	var newList []float64
+
+	switch oldList := value.(type) {
+	case []float64:
+		// already have what we need
+		return oldList, nil
+	case []int:
+		for _, v := range oldList {
+			newList = append(newList, float64(v))
+		}
+	case []interface{}:
+		// slice of unknowns: need to coerce each one dynamically
+		for _, v := range oldList {
+			cf, err := coerceValueToFloat64(v)
+			if err != nil {
+				return nil, ErrBadBindingType{fmt.Sprintf("%T", v)}
+			}
+			newList = append(newList, cf)
+		}
+	case []float32:
+		for _, v := range oldList {
+			newList = append(newList, float64(v))
+		}
+	case []int32:
+		for _, v := range oldList {
+			newList = append(newList, float64(v))
+		}
+	case []int64:
+		for _, v := range oldList {
+			newList = append(newList, float64(v))
+		}
+	default:
+		return nil, ErrBadBindingType{fmt.Sprintf("%T", oldList)}
+	}
+
+	return newList, nil
+}
+
+func coerceValueToFloat64(value interface{}) (float64, error) {
+	switch v := value.(type) {
+	case float64:
+		return v, nil
+	case float32:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	default:
+		return 0, ErrBadBindingType{fmt.Sprintf("%T", v)}
+	}
 }
