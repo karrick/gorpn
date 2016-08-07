@@ -468,7 +468,6 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 
 	if e.performTimeSubstitutions {
 		nowSeconds = float64(time.Now().Unix())
-
 		if epoch, ok := bindings["TIME"]; ok {
 			zTimeSeconds, isTimeSet = epoch.(float64)
 			if !isTimeSet {
@@ -478,15 +477,6 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 			jTime, jo = epochToJuliet(int(zTimeSeconds))
 			jTimeSeconds = float64(jTime.Unix() + int64(jo))
 		}
-
-		// // ??? not sure if we want this
-		// // ??? also, if we have LTIME, we could get TIME, so this needs to be figured out
-		// if epoch, ok := bindings["LTIME"]; ok {
-		//	jTimeSeconds, isTimeSet = epoch.(float64)
-		//	if !isTimeSet {
-		//		return newErrSyntax("LTIME ought to be bound to number rather than %T", epoch)
-		//	}
-		// }
 	}
 
 	// variables outside of loop to reduce allocations
@@ -540,13 +530,13 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.scratchHead++
 
 			case "NOW":
-				e.isFloat[e.scratchHead] = e.performTimeSubstitutions
 				if e.performTimeSubstitutions {
 					e.scratch[e.scratchHead] = nowSeconds
 				} else {
 					e.scratch[e.scratchHead] = token
 					e.openBindings[token] = e.openBindings[token] + 1
 				}
+				e.isFloat[e.scratchHead] = e.performTimeSubstitutions
 				e.scratchHead++
 
 			case "TIME":
