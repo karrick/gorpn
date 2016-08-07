@@ -1473,6 +1473,8 @@ func TestNewExpressionMEDIAN(t *testing.T) {
 
 // NEWDAY, NEWWEEK, NEWMONTH, NEWYEAR
 
+// NEWDAY
+
 func julietToZulu(julietSeconds int) int {
 	// MAJOR CODE SMELL:
 	// circular dependency here, because you need zulu epoch to get offset, which you need to
@@ -1564,6 +1566,8 @@ func TestEvaluateNEWDAYAfterRightEdge(t *testing.T) {
 	}
 }
 
+// NEWWEEK
+
 func TestEvaluateNEWWEEKOpenBinding(t *testing.T) {
 	exp, err := New("NEWWEEK")
 	if err != nil {
@@ -1636,6 +1640,91 @@ func TestEvaluateNEWWEEKAfterRightEdge(t *testing.T) {
 	}
 
 	epoch := 3 * 86400 // unix epoch was on Thursday, so advance to following Sunday
+
+	// want it to be 301 seconds past midnight local time
+	actual, err := exp.Evaluate(map[string]interface{}{"TIME": julietToZulu(epoch + DefaultSecondsPerInterval + 1)})
+	if err != nil {
+		t.Fatalf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if expected := 0.0; actual != expected {
+		t.Errorf("Actual: %#v; Expected: %#v", actual, expected)
+	}
+}
+
+// NEWMONTH
+
+func TestEvaluateNEWMONTHOpenBinding(t *testing.T) {
+	exp, err := New("NEWMONTH")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = exp.Evaluate(nil)
+	if err == nil || err.Error() != "open bindings: TIME" {
+		t.Errorf("Actual: %#v; Expected: %#v", err, "open bindings: TIME")
+	}
+}
+
+func TestEvaluateNEWMONTHBeforeLeftEdge(t *testing.T) {
+	exp, err := New("NEWMONTH")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	epoch := 0
+	// want it to be 1 seconds prior to midnight local time
+	actual, err := exp.Evaluate(map[string]interface{}{"TIME": julietToZulu(epoch - 1)})
+	if err != nil {
+		t.Fatalf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if expected := 0.0; actual != expected {
+		t.Errorf("Actual: %#v; Expected: %#v", actual, expected)
+	}
+}
+
+func TestEvaluateNEWMONTHOnLeftEdge(t *testing.T) {
+	exp, err := New("NEWMONTH")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	epoch := 0
+
+	// want it to be at midnight local time
+	actual, err := exp.Evaluate(map[string]interface{}{"TIME": julietToZulu(epoch)})
+	if err != nil {
+		t.Fatalf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if expected := 1.0; actual != expected {
+		t.Errorf("Actual: %#v; Expected: %#v", actual, expected)
+	}
+}
+
+func TestEvaluateNEWMONTHOnRightEdge(t *testing.T) {
+	exp, err := New("NEWMONTH")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	epoch := 0
+
+	// want it to be 300 seconds past midnight local time
+	actual, err := exp.Evaluate(map[string]interface{}{"TIME": julietToZulu(epoch + DefaultSecondsPerInterval)})
+	if err != nil {
+		t.Fatalf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if expected := 1.0; actual != expected {
+		t.Errorf("Actual: %#v; Expected: %#v", actual, expected)
+	}
+}
+
+func TestEvaluateNEWMONTHAfterRightEdge(t *testing.T) {
+	exp, err := New("NEWMONTH")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	epoch := 0
 
 	// want it to be 301 seconds past midnight local time
 	actual, err := exp.Evaluate(map[string]interface{}{"TIME": julietToZulu(epoch + DefaultSecondsPerInterval + 1)})
