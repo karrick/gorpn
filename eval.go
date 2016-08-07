@@ -349,10 +349,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 	e.openBindings = make(map[string]int)
 
 	// heisenberg principle, realized: it takes time to observe the time, so do it only once
-	var now interface{} = "NOW"
-	var zuluTime interface{} = "TIME"
-	var localTime interface{} = "LTIME"
 	var isNowSet, isTimeSet bool
+	var now interface{} = "NOW"
+	var zSeconds interface{} = "TIME"
+	var jSeconds interface{} = "LTIME"
+	var jTime time.Time
 
 	if e.performTimeSubstitutions {
 		now = float64(time.Now().Unix())
@@ -360,9 +361,9 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 
 		if tm, ok := bindings["TIME"]; ok {
 			if secondsSinceEpoch, ok := tm.(float64); ok {
-				jTime, jSeconds := julietTime(int(secondsSinceEpoch))
-				zuluTime = float64(jTime.Unix())
-				localTime = float64(jSeconds)
+				jTime, jSeconds = julietTime(int(secondsSinceEpoch))
+				jSeconds = float64(jSeconds.(int64))
+				zSeconds = float64(jTime.Unix())
 				isTimeSet = true
 			}
 		}
@@ -449,7 +450,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				}
 				e.scratchHead++
 			case "LTIME":
-				e.scratch[e.scratchHead] = localTime
+				e.scratch[e.scratchHead] = jSeconds
 				e.isFloat[e.scratchHead] = isTimeSet
 				if !isTimeSet {
 					e.openBindings[token] = e.openBindings[token] + 1
@@ -460,7 +461,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "TIME":
-				e.scratch[e.scratchHead] = zuluTime
+				e.scratch[e.scratchHead] = zSeconds
 				e.isFloat[e.scratchHead] = isTimeSet
 				if !isTimeSet {
 					e.openBindings[token] = e.openBindings[token] + 1
