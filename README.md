@@ -97,6 +97,10 @@ Each logical function pushes 1 for 0, and 0 for false.
  * MIN (UNK if either number is UNK)
  * MINUTE (number of seconds in a minute)
  * NEGINF (push -Inf on stack)
+ * NEWDAY (push 1 if datum is first datum for day)
+ * NEWMONTH (push 1 if datum is first datum for month)
+ * NEWWEEK (push 1 if datum is first datum for week)
+ * NEWYEAR (push 1 if datum is first datum for year)
  * NOW (push number of seconds since epoch)
  * POP (discard top element of stack)
  * REV (pop count of items. then pop that many items. reverse, then push back)
@@ -120,10 +124,6 @@ of a set of bindings. See below for more information.
 
 The following features have yet to be implemented in this library.
 
- * NEWDAY
- * NEWMONTH
- * NEWWEEK
- * NEWYEAR
  * PREDICT
  * PREDICTSIGMA
  * PREV
