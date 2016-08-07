@@ -464,6 +464,30 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
+			case "NEWMONTH":
+				if isTimeSet {
+					var n float64
+					if jTime.Day() == 1 {
+						// is julietTime first datum of day?
+						divisor := 86400
+						tLeft := (int(jTimeSeconds) / divisor) * divisor
+						tRight := tLeft + DefaultSecondsPerInterval
+
+						if ijts := int(jTimeSeconds); ijts < tLeft || ijts > tRight {
+							// no-op
+						} else {
+							n = 1
+						}
+					}
+					e.scratch[e.scratchHead] = n
+
+				} else {
+					// NOTE: these tokens actually require TIME to be bound
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+					e.scratch[e.scratchHead] = token
+				}
+				e.isFloat[e.scratchHead] = isTimeSet
+				e.scratchHead++
 			case "NOW":
 				e.isFloat[e.scratchHead] = e.performTimeSubstitutions
 				if e.performTimeSubstitutions {
