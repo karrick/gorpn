@@ -416,7 +416,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 			case "NEWDAY", "NEWWEEK", "NEWMONTH", "NEWYEAR":
 				if isTimeSet {
 					var n float64
-					t := time.Unix(int64(zuluTime.(float64)), 0)
+					t := time.Unix(int64(zSeconds.(float64)), 0)
 					switch token {
 					case "NEWDAY":
 						if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 {
