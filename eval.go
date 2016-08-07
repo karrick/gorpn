@@ -279,13 +279,7 @@ func (e *Expression) Evaluate(bindings map[string]interface{}) (float64, error) 
 	var openBindings []string
 	for k, v := range e.openBindings {
 		if v > 0 {
-			switch k {
-			case "LTIME", "NEWDAY", "NEWWEEK", "NEWMONTH", "NEWYEAR":
-				// NOTE: these tokens actually require TIME to be bound
-				openBindings = append(openBindings, "TIME")
-			default:
-				openBindings = append(openBindings, k)
-			}
+			openBindings = append(openBindings, k)
 		}
 	}
 	if len(openBindings) > 0 {
@@ -324,13 +318,10 @@ func (e Expression) valid(bindings map[string]interface{}) bool {
 	return e.isFloat[0]
 }
 
-func julietTime(secondsSinceEpoch int) (time.Time, int64) {
+func epochToJuliet(secondsSinceEpoch int) (time.Time, int) {
 	julietTime := time.Unix(int64(secondsSinceEpoch), 0) // Juliet time zone is "local" time zone
 	_, julietOffset := julietTime.Zone()
-	julietSeconds := julietTime.Unix() + int64(julietOffset)
-	// fmt.Printf("julietTime: %v; julietSeconds: %v\n", julietTime, julietSeconds)
-	// fmt.Printf("zuluTime: %v; zuluSeconds: %v\n", julietTime.UTC(), julietTime.UTC().Unix())
-	return julietTime, julietSeconds
+	return julietTime, julietOffset
 }
 
 func (e *Expression) simplify(bindings map[string]interface{}) error {
@@ -349,24 +340,31 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 	e.openBindings = make(map[string]int)
 
 	// heisenberg principle, realized: it takes time to observe the time, so do it only once
-	var isNowSet, isTimeSet bool
-	var now interface{} = "NOW"
-	var zSeconds interface{} = "TIME"
-	var jSeconds interface{} = "LTIME"
+	var isTimeSet bool
+	var nowSeconds, jTimeSeconds, zTimeSeconds float64
 	var jTime time.Time
 
 	if e.performTimeSubstitutions {
-		now = float64(time.Now().Unix())
-		isNowSet = true
+		nowSeconds = float64(time.Now().Unix())
 
-		if tm, ok := bindings["TIME"]; ok {
-			if secondsSinceEpoch, ok := tm.(float64); ok {
-				jTime, jSeconds = julietTime(int(secondsSinceEpoch))
-				jSeconds = float64(jSeconds.(int64))
-				zSeconds = float64(jTime.Unix())
-				isTimeSet = true
+		if epoch, ok := bindings["TIME"]; ok {
+			zTimeSeconds, isTimeSet = epoch.(float64)
+			if !isTimeSet {
+				return newErrSyntax("TIME ought to be bound to number rather than %T", epoch)
 			}
+			var jo int
+			jTime, jo = epochToJuliet(int(zTimeSeconds))
+			jTimeSeconds = float64(jTime.Unix() + int64(jo))
 		}
+
+		// // ??? not sure if we want this
+		// // ??? also, if we have LTIME, we could get TIME, so this needs to be figured out
+		// if epoch, ok := bindings["LTIME"]; ok {
+		// 	jTimeSeconds, isTimeSet = epoch.(float64)
+		// 	if !isTimeSet {
+		// 		return newErrSyntax("LTIME ought to be bound to number rather than %T", epoch)
+		// 	}
+		// }
 	}
 
 	// variables outside of loop to reduce allocations
@@ -378,27 +376,27 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 
 	// tokens is our stored program, and scratch is our work area
 	for tokIdx, tok = range e.tokens {
-		switch tok.(type) {
+		switch token := tok.(type) {
 		case float64:
-			e.scratch[e.scratchHead] = tok
+			e.scratch[e.scratchHead] = token
 			e.isFloat[e.scratchHead] = true
 			e.scratchHead++
 		case string:
-			switch token := tok.(string); token {
+			switch token {
 			case "MINUTE":
-				e.scratch[e.scratchHead] = float64(60)
+				e.scratch[e.scratchHead] = 60.0
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "HOUR":
-				e.scratch[e.scratchHead] = float64(3600)
+				e.scratch[e.scratchHead] = 3600.0
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "DAY":
-				e.scratch[e.scratchHead] = float64(86400)
+				e.scratch[e.scratchHead] = 86400.0
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "WEEK":
-				e.scratch[e.scratchHead] = float64(604800)
+				e.scratch[e.scratchHead] = 604800.0
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "UNKN":
@@ -409,50 +407,69 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.scratch[e.scratchHead] = math.Inf(1)
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
+			case "LTIME":
+				if isTimeSet {
+					e.scratch[e.scratchHead] = jTimeSeconds
+				} else {
+					// NOTE: these tokens actually require TIME to be bound
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+					e.scratch[e.scratchHead] = token
+				}
+				e.isFloat[e.scratchHead] = isTimeSet
+				e.scratchHead++
 			case "NEGINF":
 				e.scratch[e.scratchHead] = math.Inf(-1)
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
-			case "NEWDAY", "NEWWEEK", "NEWMONTH", "NEWYEAR":
+			case "NEWDAY":
+				if isTimeSet {
+					// is julietTime first datum of day?
+					divisor := 86400
+					tLeft := (int(jTimeSeconds) / divisor) * divisor
+					tRight := tLeft + DefaultSecondsPerInterval
+
+					if ijts := int(jTimeSeconds); ijts < tLeft || ijts > tRight {
+						e.scratch[e.scratchHead] = 0.0
+					} else {
+						e.scratch[e.scratchHead] = 1.0
+					}
+				} else {
+					// NOTE: these tokens actually require TIME to be bound
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+					e.scratch[e.scratchHead] = token
+				}
+				e.isFloat[e.scratchHead] = isTimeSet
+				e.scratchHead++
+			case "NEWWEEK":
 				if isTimeSet {
 					var n float64
-					t := time.Unix(int64(zSeconds.(float64)), 0)
-					switch token {
-					case "NEWDAY":
-						if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 {
-							n = 1
-						}
-					case "NEWWEEK":
-						if t.Weekday() == time.Sunday {
-							n = 1
-						}
-					case "NEWMONTH":
-						if t.Day() == 1 {
-							n = 1
-						}
-					case "NEWYEAR":
-						if t.Month() == time.January && t.Day() == 1 {
+					if jTime.Weekday() == time.Sunday {
+						// is julietTime first datum of day?
+						divisor := 86400
+						tLeft := (int(jTimeSeconds) / divisor) * divisor
+						tRight := tLeft + DefaultSecondsPerInterval
+
+						if ijts := int(jTimeSeconds); ijts < tLeft || ijts > tRight {
+							// no-op
+						} else {
 							n = 1
 						}
 					}
 					e.scratch[e.scratchHead] = n
+
 				} else {
+					// NOTE: these tokens actually require TIME to be bound
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
 					e.scratch[e.scratchHead] = token
-					e.openBindings[token] = e.openBindings[token] + 1
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
 			case "NOW":
-				e.scratch[e.scratchHead] = now
-				e.isFloat[e.scratchHead] = isNowSet
-				if !isNowSet {
-					e.openBindings[token] = e.openBindings[token] + 1
-				}
-				e.scratchHead++
-			case "LTIME":
-				e.scratch[e.scratchHead] = jSeconds
-				e.isFloat[e.scratchHead] = isTimeSet
-				if !isTimeSet {
+				e.isFloat[e.scratchHead] = e.performTimeSubstitutions
+				if e.performTimeSubstitutions {
+					e.scratch[e.scratchHead] = nowSeconds
+				} else {
+					e.scratch[e.scratchHead] = token
 					e.openBindings[token] = e.openBindings[token] + 1
 				}
 				e.scratchHead++
@@ -461,11 +478,13 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "TIME":
-				e.scratch[e.scratchHead] = zSeconds
-				e.isFloat[e.scratchHead] = isTimeSet
-				if !isTimeSet {
+				if isTimeSet {
+					e.scratch[e.scratchHead] = zTimeSeconds
+				} else {
+					e.scratch[e.scratchHead] = token
 					e.openBindings[token] = e.openBindings[token] + 1
 				}
+				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
 			case "":
 				return newErrSyntax("empty token")
