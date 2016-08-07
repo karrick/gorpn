@@ -265,27 +265,32 @@ func TestNewExpressionCOPY(t *testing.T) {
 	}
 }
 
-func TestNewExpressionCOUNT(t *testing.T) {
-	t.Skip("TODO")
-	errors := map[string]string{
-	//
+// COUNT
+
+func TestEvaluateCOUNTWithoutCOUNT(t *testing.T) {
+	exp, err := New("COUNT")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for i, e := range errors {
-		if _, err := New(i); err == nil || err.Error() != e {
-			t.Errorf("Case: %s; Actual: %s; Expected: %#v", i, err, e)
-		}
+	_, err = exp.Evaluate(nil)
+	if err == nil || err.Error() != "open bindings: COUNT" {
+		t.Errorf("Actual: %s; Expected: %#v", err, "open bindings: COUNT")
 	}
-	list := map[string]string{
-	//
+}
+
+func TestEvaluateCOUNTWithTime(t *testing.T) {
+	exp, err := New("COUNT")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for input, output := range list {
-		exp, err := New(input)
-		if err != nil {
-			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
-		}
-		if actual, want := exp.String(), output; actual != want {
-			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, actual, want)
-		}
+	value, err := exp.Evaluate(map[string]interface{}{
+		"COUNT": 666,
+	})
+	if err != nil {
+		t.Errorf("Actual: %s; Expected: %#v", err, nil)
+	}
+	if int(value) != 666 {
+		t.Errorf("Actual: %#v; Expected: %#v", int(value), 666)
 	}
 }
 
