@@ -501,6 +501,24 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 			e.scratchHead++
 		case string:
 			switch token {
+
+			case "UNKN":
+				e.scratch[e.scratchHead] = math.NaN()
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "INF":
+				e.scratch[e.scratchHead] = math.Inf(1)
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "NEGINF":
+				e.scratch[e.scratchHead] = math.Inf(-1)
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "STEPWIDTH":
+				e.scratch[e.scratchHead] = e.secondsPerInterval
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+
 			case "MINUTE":
 				e.scratch[e.scratchHead] = 60.0
 				e.isFloat[e.scratchHead] = true
@@ -517,23 +535,6 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.scratch[e.scratchHead] = 604800.0
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
-			case "STEPWIDTH":
-				e.scratch[e.scratchHead] = e.secondsPerInterval
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-
-			case "INF":
-				e.scratch[e.scratchHead] = math.Inf(1)
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-			case "NEGINF":
-				e.scratch[e.scratchHead] = math.Inf(-1)
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-			case "UNKN":
-				e.scratch[e.scratchHead] = math.NaN()
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
 
 			case "NOW":
 				if e.performTimeSubstitutions {
@@ -546,7 +547,6 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.scratchHead++
 
 			case "TIME":
-				// following tokens all require "TIME" to be set in bindings
 				if isTimeSet {
 					e.scratch[e.scratchHead] = zTimeSeconds
 				} else {
