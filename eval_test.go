@@ -1735,3 +1735,88 @@ func TestEvaluateNEWMONTHAfterRightEdge(t *testing.T) {
 		t.Errorf("Actual: %#v; Expected: %#v", actual, expected)
 	}
 }
+
+// NEWYEAR
+
+func TestEvaluateNEWYEAROpenBinding(t *testing.T) {
+	exp, err := New("NEWYEAR")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = exp.Evaluate(nil)
+	if err == nil || err.Error() != "open bindings: TIME" {
+		t.Errorf("Actual: %#v; Expected: %#v", err, "open bindings: TIME")
+	}
+}
+
+func TestEvaluateNEWYEARBeforeLeftEdge(t *testing.T) {
+	exp, err := New("NEWYEAR")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	epoch := 0
+	// want it to be 1 seconds prior to midnight local time
+	actual, err := exp.Evaluate(map[string]interface{}{"TIME": julietToZulu(epoch - 1)})
+	if err != nil {
+		t.Fatalf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if expected := 0.0; actual != expected {
+		t.Errorf("Actual: %#v; Expected: %#v", actual, expected)
+	}
+}
+
+func TestEvaluateNEWYEAROnLeftEdge(t *testing.T) {
+	exp, err := New("NEWYEAR")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	epoch := 0
+
+	// want it to be at midnight local time
+	actual, err := exp.Evaluate(map[string]interface{}{"TIME": julietToZulu(epoch)})
+	if err != nil {
+		t.Fatalf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if expected := 1.0; actual != expected {
+		t.Errorf("Actual: %#v; Expected: %#v", actual, expected)
+	}
+}
+
+func TestEvaluateNEWYEAROnRightEdge(t *testing.T) {
+	exp, err := New("NEWYEAR")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	epoch := 0
+
+	// want it to be 300 seconds past midnight local time
+	actual, err := exp.Evaluate(map[string]interface{}{"TIME": julietToZulu(epoch + DefaultSecondsPerInterval)})
+	if err != nil {
+		t.Fatalf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if expected := 1.0; actual != expected {
+		t.Errorf("Actual: %#v; Expected: %#v", actual, expected)
+	}
+}
+
+func TestEvaluateNEWYEARAfterRightEdge(t *testing.T) {
+	exp, err := New("NEWYEAR")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	epoch := 0
+
+	// want it to be 301 seconds past midnight local time
+	actual, err := exp.Evaluate(map[string]interface{}{"TIME": julietToZulu(epoch + DefaultSecondsPerInterval + 1)})
+	if err != nil {
+		t.Fatalf("Actual: %#v; Expected: %#v", err, nil)
+	}
+	if expected := 0.0; actual != expected {
+		t.Errorf("Actual: %#v; Expected: %#v", actual, expected)
+	}
+}

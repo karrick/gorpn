@@ -324,6 +324,20 @@ func epochToJuliet(secondsSinceEpoch int) (time.Time, int) {
 	return julietTime, julietOffset
 }
 
+func isFirstOfDay(jSeconds, secondsPerInterval float64) float64 {
+	// is julietTime first datum of day?
+	const secondsPerDay = 86400
+	js := int(jSeconds)
+
+	tLeft := (int(js) / secondsPerDay) * secondsPerDay
+	tRight := tLeft + int(secondsPerInterval)
+
+	if ijts := js; ijts < tLeft || ijts > tRight {
+		return 0
+	}
+	return 1
+}
+
 func (e *Expression) simplify(bindings map[string]interface{}) error {
 	// NOTE: scratch is not local variable so Partial has access to it
 	// TODO: change method signature to pass it back and make it local
@@ -423,16 +437,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.scratchHead++
 			case "NEWDAY":
 				if isTimeSet {
-					// is julietTime first datum of day?
-					divisor := 86400
-					tLeft := (int(jTimeSeconds) / divisor) * divisor
-					tRight := tLeft + DefaultSecondsPerInterval
-
-					if ijts := int(jTimeSeconds); ijts < tLeft || ijts > tRight {
-						e.scratch[e.scratchHead] = 0.0
-					} else {
-						e.scratch[e.scratchHead] = 1.0
-					}
+					e.scratch[e.scratchHead] = isFirstOfDay(jTimeSeconds, e.secondsPerInterval)
 				} else {
 					// NOTE: these tokens actually require TIME to be bound
 					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
@@ -442,21 +447,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.scratchHead++
 			case "NEWWEEK":
 				if isTimeSet {
-					var n float64
 					if jTime.Weekday() == time.Sunday {
-						// is julietTime first datum of day?
-						divisor := 86400
-						tLeft := (int(jTimeSeconds) / divisor) * divisor
-						tRight := tLeft + DefaultSecondsPerInterval
-
-						if ijts := int(jTimeSeconds); ijts < tLeft || ijts > tRight {
-							// no-op
-						} else {
-							n = 1
-						}
+						e.scratch[e.scratchHead] = isFirstOfDay(jTimeSeconds, e.secondsPerInterval)
+					} else {
+						e.scratch[e.scratchHead] = 0.0
 					}
-					e.scratch[e.scratchHead] = n
-
 				} else {
 					// NOTE: these tokens actually require TIME to be bound
 					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
@@ -466,21 +461,25 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.scratchHead++
 			case "NEWMONTH":
 				if isTimeSet {
-					var n float64
 					if jTime.Day() == 1 {
-						// is julietTime first datum of day?
-						divisor := 86400
-						tLeft := (int(jTimeSeconds) / divisor) * divisor
-						tRight := tLeft + DefaultSecondsPerInterval
-
-						if ijts := int(jTimeSeconds); ijts < tLeft || ijts > tRight {
-							// no-op
-						} else {
-							n = 1
-						}
+						e.scratch[e.scratchHead] = isFirstOfDay(jTimeSeconds, e.secondsPerInterval)
+					} else {
+						e.scratch[e.scratchHead] = 0.0
 					}
-					e.scratch[e.scratchHead] = n
-
+				} else {
+					// NOTE: these tokens actually require TIME to be bound
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+					e.scratch[e.scratchHead] = token
+				}
+				e.isFloat[e.scratchHead] = isTimeSet
+				e.scratchHead++
+			case "NEWYEAR":
+				if isTimeSet {
+					if _, m, d := jTime.Date(); m == 1 && d == 1 {
+						e.scratch[e.scratchHead] = isFirstOfDay(jTimeSeconds, e.secondsPerInterval)
+					} else {
+						e.scratch[e.scratchHead] = 0.0
+					}
 				} else {
 					// NOTE: these tokens actually require TIME to be bound
 					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
