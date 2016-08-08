@@ -155,7 +155,7 @@ in order to evaluate the final result.
 
 Variable bindings are supported by providing a map of string names to their numerical values to the
 Evaluate method. Recall that when no bindings are needed, the `nil` value may be sent to Evaluate to
-find the RPN result. In the example below, 
+find the RPN result. In the example below,
 
 ```Go
     type Datum struct {
@@ -172,11 +172,11 @@ find the RPN result. In the example below,
     func example(start, end time.Time, interval time.Duration, data map[string]Series) {
         for when := start; end.Before(when); when.Add(interval) {
             bindings := make(map[string]interface{})
-            
+
             for label, series := range data {
                 bindings[label] = getValueAtTime(when, series)
             }
-            
+
             value, err := exp.Evaluate(bindings)
             // handle error...
         }
@@ -193,13 +193,14 @@ that information in the form of a binding variable.
 
 ### LTIME and TIME, contrasted against NOW
 
-The RPN evaluator does not know the time a particular datum was obtained; that must be provided. But
-once provided, both the TIME and the LTIME are available during RPN expression evaluation.
+The NOW pseudo-variable is _always_ available during evaulation because it's the number of seconds
+since the UNIX epoch at the moment of evaluation. In contrast, TIME in RRD parlance, refers to the
+time associated with a particular datum. As a program loops through a bunch of time+value datum
+tuples, it will need to bind the time to the TIME symbol in the bindings map provided to Evaluate.
 
-NOW is always available during evaulation because it's the number of seconds since the UNIX epoch at
-the moment it's executed. TIME, in RRD parlance, however refers to the time associated with a
-particular datum. As a program loops through a bunch of time+value datum tuples, it will need to
-bind the time to the TIME symbol in the bindings map provided to Evaluate.
+The RPN evaluator does not know the time a particular datum was obtained; that must be provided at
+the time of evaluation. But once TIME is provided, other pseudo-variables are available for
+evaluation, including LTIME, NEWDAY, NEWWEEK, NEWMONTH, and NEWYEAR.
 
 LTIME, like TIME, corresponds to the time associated with a particular datum. It is calculated from
 the bound TIME value provided in the bindings to Evaluate.
@@ -215,11 +216,11 @@ the bound TIME value provided in the bindings to Evaluate.
             bindings := make(map[string]interface{})
             bindings["COUNT"] = count
             bindings["TIME"] = when.Unix()
-            
+
             for label, series := range data {
                 bindings[label] = getValueAtTime(when, series)
             }
-            
+
             value, err := exp.Evaluate(bindings)
             ...
         }
@@ -236,13 +237,19 @@ future. If it does, I hope the library API will remain constant.
 
 ```Go
     for _, tm := range times {
-	    bindings := map[string]interface{}{
-		    "TIME": tm,
+        bindings := map[string]interface{}{
+            "TIME": tm,
         }
-	    value, err := exp.Evaluate(bindings)
+        value, err := exp.Evaluate(bindings)
         ...
     }
 ```
+
+## PREV
+
+Pushes an unknown value if this is the first value of a data set or otherwise the result of this
+CDEF at the previous time step. This allows you to do calculations across the data. This function
+cannot be used in VDEF instructions.
 
 ## PREV(vname)
 
@@ -251,9 +258,3 @@ Requires COUNT binding.
 Pushes an unknown value if this is the first value of a data set or otherwise the result of the
 vname variable at the previous time step. This allows you to do calculations across the data. This
 function cannot be used in VDEF instructions.
-
-## PREV
-
-Pushes an unknown value if this is the first value of a data set or otherwise the result of this
-CDEF at the previous time step. This allows you to do calculations across the data. This function
-cannot be used in VDEF instructions.
