@@ -150,10 +150,10 @@ func newErrSyntax(a ...interface{}) ErrSyntax {
 type ExpressionConfigurator func(*Expression) error
 
 // Delimiter allows changing the expected delimiter for an RPN Expression from the default
-// delimiter, the comma.
+// delimiter, the comma. Changing the delimiter to one of the math operators is not supported.
 //
 //	func example() {
-//		exp, err := gorpn.New("42 13 2 MEDIAN", gorpn.Delimiter(' '))
+//		exp, err := gorpn.New("42|13|2|MEDIAN", gorpn.Delimiter('|'))
 //		if err != nil {
 //			panic(err)
 //		}
@@ -165,6 +165,9 @@ type ExpressionConfigurator func(*Expression) error
 //	}
 func Delimiter(someDelimiter rune) ExpressionConfigurator {
 	return func(e *Expression) error {
+		if _, ok := arity[string(someDelimiter)]; ok {
+			return newErrSyntax("cannot use %c operator for delimiter", someDelimiter)
+		}
 		e.delimiter = someDelimiter
 		return nil
 	}
