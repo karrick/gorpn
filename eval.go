@@ -184,6 +184,9 @@ func Delimiter(someDelimiter rune) ExpressionConfigurator {
 //	}
 func SecondsPerInterval(seconds float64) ExpressionConfigurator {
 	return func(e *Expression) error {
+		if seconds <= 0 {
+			return newErrSyntax("cannot use %d seconds as interval", seconds)
+		}
 		e.secondsPerInterval = seconds
 		return nil
 	}
