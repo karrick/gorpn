@@ -205,12 +205,13 @@ type Expression struct {
 // RPN expression is returned. See notes on the Partial method for additional reasoning behind this
 // decision.
 //
-//	func example() {
-//		exp, err := gorpn.New("5,3,+,foo,*")
-//		if err != nil {
-//			panic(err)
-//		}
-//		s := exp.String() // "8,foo,*"
+//	expression, err := gorpn.New("60,24.*")
+//	if err != nil {
+//	    panic(err)
+//	}
+//	result, err := expression.Evaluate(nil)
+//	if err != nil {
+//	    panic(err)
 //	}
 func New(someExpression string, setters ...ExpressionConfigurator) (*Expression, error) {
 	if someExpression == "" {
@@ -247,33 +248,28 @@ func New(someExpression string, setters ...ExpressionConfigurator) (*Expression,
 // Evaluate evaluates the Expression after applying the parameter bindings. An empty map or, more
 // idiomatically a nil value, is given to Evaluate for RPN expressions that have no open bindings.
 //
-//	func example1() {
-//		exp, err := gorpn.New("5,3,+")
-//		if err != nil {
-//			panic(err)
-//		}
-//
-//		value, err := exp.Evaluate(nil)
-//		if err != nil {
-//			panic(err)
-//		}
-//		fmt.Println(value) // prints 8
+//	expression, err := gorpn.New("60,24.*")
+//	if err != nil {
+//	    panic(err)
+//	}
+//	result, err := expression.Evaluate(nil)
+//	if err != nil {
+//	    panic(err)
 //	}
 //
 // For RPN expressions that have open bindings, simply create a map and set keys to the parameter
 // names and their respective values to their desired bound values.
 //
-//	func example1() {
-//		exp, err := gorpn.New("5,3,+,foo,*")
-//		if err != nil {
-//			panic(err)
-//		}
-//
-//		value, err := exp.Evaluate(map[string]interface{}{"foo":7})
-//		if err != nil {
-//			panic(err)
-//		}
-//		fmt.Println(value) // prints 56
+//	expression, err := gorpn.New("12,age.*")
+//	if err != nil {
+//	    panic(err)
+//	}
+//	bindings := map[string]interface{} {
+//	    "age": 21,
+//	}
+//	result, err := expression.Evaluate(bindings)
+//	if err != nil {
+//	    panic(err)
 //	}
 func (e *Expression) Evaluate(bindings map[string]interface{}) (float64, error) {
 	var err error
