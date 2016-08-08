@@ -10,10 +10,14 @@ import (
 	"time"
 )
 
-const (
-	DefaultDelimiter          = ","
-	DefaultSecondsPerInterval = 300
-)
+// DefaultDelimiter specifies the delimiter character used between tokens in an RPN expression. For
+// instance, in the expression `12,age,*`, the delimiter is the comma. The evaluator can use a
+// different delimiter character by invoking the Delimiter() function.
+const DefaultDelimiter = ','
+
+// DefaultSecondsPerInterval specifies the number of seconds between successive data values in a
+// time-series. It can be overridden by SecondsPerInterval() function.
+const DefaultSecondsPerInterval = 300
 
 // type arityTuple [3]int
 type arityTuple struct {
@@ -142,9 +146,49 @@ func newErrSyntax(a ...interface{}) ErrSyntax {
 	return ErrSyntax{message, err}
 }
 
+// ExpressionConfigurator represents a function that modifies an RPN Expression.
+type ExpressionConfigurator func(*Expression) error
+
+// Delimiter allows changing the expected delimiter for an RPN Expression from the default
+// delimiter, the comma.
+//
+//	func example() {
+//		exp, err := gorpn.New("42 13 2 MEDIAN", gorpn.Delimiter(' '))
+//		if err != nil {
+//			panic(err)
+//		}
+//		value, err := exp.Evaluate(nil)
+//		if err != nil {
+//			panic(err)
+//		}
+//		fmt.Println("value:", value)
+//	}
+func Delimiter(someDelimiter rune) ExpressionConfigurator {
+	return func(e *Expression) error {
+		e.delimiter = someDelimiter
+		return nil
+	}
+}
+
+// SecondsPerInterval allows changing the expected number of seconds per interval to be used when
+// evaluating an RPN Expression from the default value of 300..
+//
+//	func example() {
+//		exp, err := gorpn.New("42,13,2,MEDIAN", gorpn.SecondsPerInterval(60))
+//		if err != nil {
+//			panic(err)
+//		}
+//	}
+func SecondsPerInterval(seconds float64) ExpressionConfigurator {
+	return func(e *Expression) error {
+		e.secondsPerInterval = seconds
+		return nil
+	}
+}
+
 // Expression represents a RPN expression.
 type Expression struct {
-	delimiter                string
+	delimiter                rune
 	openBindings             map[string]int // count of number of instances
 	secondsPerInterval       float64
 	tokens                   []interface{} // components of the expression
@@ -156,8 +200,19 @@ type Expression struct {
 	isFloat     []bool        // true iff corresponding scratch item is a float64
 }
 
-// New returns a new RPN Expression based on some expression.
-func New(someExpression string, setters ...ExpressionSetter) (*Expression, error) {
+// New returns a new RPN Expression based on some expression.  Creating a new RPN expression
+// automatically invokes the Partial method on the expression to ensure the most reduced form of the
+// RPN expression is returned. See notes on the Partial method for additional reasoning behind this
+// decision.
+//
+//	func example() {
+//		exp, err := gorpn.New("5,3,+,foo,*")
+//		if err != nil {
+//			panic(err)
+//		}
+//		s := exp.String() // "8,foo,*"
+//	}
+func New(someExpression string, setters ...ExpressionConfigurator) (*Expression, error) {
 	if someExpression == "" {
 		return nil, ErrSyntax{"empty expression", nil}
 	}
@@ -170,7 +225,7 @@ func New(someExpression string, setters ...ExpressionSetter) (*Expression, error
 			return nil, err
 		}
 	}
-	tokens := strings.Split(someExpression, e.delimiter)
+	tokens := strings.Split(someExpression, string(e.delimiter))
 	e.scratchSize = len(tokens)
 
 	e.tokens = make([]interface{}, e.scratchSize)
@@ -189,86 +244,37 @@ func New(someExpression string, setters ...ExpressionSetter) (*Expression, error
 	return e.Partial(nil)
 }
 
-// ExpressionSetter represents a function that modifies an RPN
-// Expression.
-type ExpressionSetter func(*Expression) error
-
-// Delimiter allows changing the expected delimiter for an RPN
-// Expression from the default delimiter, the comma.
-func Delimiter(someByte string) ExpressionSetter {
-	return func(e *Expression) error {
-		e.delimiter = someByte
-		return nil
-	}
-}
-
-// SecondsPerInterval allows changing the expected number of seconds per interval to be used when
-// evaluating an RPN Expression from the default value of 300..
-func SecondsPerInterval(seconds float64) ExpressionSetter {
-	return func(e *Expression) error {
-		e.secondsPerInterval = seconds
-		return nil
-	}
-}
-
-// String returns the string representation of an Expression.
-func (e Expression) String() string {
-	strs := make([]string, len(e.tokens))
-	for idx, v := range e.tokens {
-		switch v.(type) {
-		case float64:
-			switch {
-			case math.IsNaN(v.(float64)):
-				// strs[idx] = "NaN" // would prefer this
-				strs[idx] = "UNKN" // don't like this
-			case math.IsInf(v.(float64), 1):
-				strs[idx] = "INF"
-			case math.IsInf(v.(float64), -1):
-				strs[idx] = "NEGINF"
-			default:
-				strs[idx] = fmt.Sprint(v)
-			}
-		case string:
-			strs[idx] = v.(string)
-		default:
-			strs[idx] = fmt.Sprint(v)
-		}
-	}
-	return strings.Join(strs, e.delimiter)
-}
-
-// Partial creates a new Expression by partial application of the
-// parameter bindings. With the additional bindings, it attempts to
-// further simplify the expression.
-func (e *Expression) Partial(bindings map[string]interface{}) (*Expression, error) {
-	// NOTE: We leave exp.performTimeSubstitutions as its default boolean value of false,
-	// preventing time substitutions from being made during this simplify operation
-	exp := &Expression{
-		delimiter:          e.delimiter,
-		secondsPerInterval: e.secondsPerInterval,
-		tokens:             make([]interface{}, len(e.tokens)),
-		scratchSize:        e.scratchSize,
-		scratch:            make([]interface{}, e.scratchSize),
-		isFloat:            make([]bool, e.scratchSize),
-	}
-	copy(exp.tokens, e.tokens)
-
-	if err := exp.simplify(bindings); err != nil {
-		return nil, err
-	}
-
-	// exp will need to know about time when Evaluate is called on it
-	exp.performTimeSubstitutions = e.performTimeSubstitutions
-
-	// promote what's remaining in work area to new simplified stored program
-	exp.tokens = exp.tokens[:exp.scratchHead] // first, shrink tokens slice
-	copy(exp.tokens, exp.scratch)             // then copy
-
-	return exp, nil
-}
-
-// Evaluate evaluates the Expression after applying the parameter
-// bindings.
+// Evaluate evaluates the Expression after applying the parameter bindings. An empty map or, more
+// idiomatically a nil value, is given to Evaluate for RPN expressions that have no open bindings.
+//
+//	func example1() {
+//		exp, err := gorpn.New("5,3,+")
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		value, err := exp.Evaluate(nil)
+//		if err != nil {
+//			panic(err)
+//		}
+//		fmt.Println(value) // prints 8
+//	}
+//
+// For RPN expressions that have open bindings, simply create a map and set keys to the parameter
+// names and their respective values to their desired bound values.
+//
+//	func example1() {
+//		exp, err := gorpn.New("5,3,+,foo,*")
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		value, err := exp.Evaluate(map[string]interface{}{"foo":7})
+//		if err != nil {
+//			panic(err)
+//		}
+//		fmt.Println(value) // prints 56
+//	}
 func (e *Expression) Evaluate(bindings map[string]interface{}) (float64, error) {
 	var err error
 
@@ -296,9 +302,109 @@ func (e *Expression) Evaluate(bindings map[string]interface{}) (float64, error) 
 	return result, nil
 }
 
-// Valid returns true iff Expression is valid RPN.
-func (e Expression) Valid() bool {
-	return e.valid(nil)
+// String returns the string representation of an Expression.
+//
+//	func example() {
+//		exp, err := gorpn.New("5,3,+,foo,*")
+//		if err != nil {
+//			panic(err)
+//		}
+//		s := exp.String() // "8,foo,*"
+//	}
+func (e Expression) String() string {
+	strs := make([]string, len(e.tokens))
+	for idx, v := range e.tokens {
+		switch v.(type) {
+		case float64:
+			switch {
+			case math.IsNaN(v.(float64)):
+				// strs[idx] = "NaN" // would prefer this
+				strs[idx] = "UNKN" // don't like this
+			case math.IsInf(v.(float64), 1):
+				strs[idx] = "INF"
+			case math.IsInf(v.(float64), -1):
+				strs[idx] = "NEGINF"
+			default:
+				strs[idx] = fmt.Sprint(v)
+			}
+		case string:
+			strs[idx] = v.(string)
+		default:
+			strs[idx] = fmt.Sprint(v)
+		}
+	}
+	return strings.Join(strs, string(e.delimiter))
+}
+
+// Partial creates a new Expression by partial application of the parameter bindings. With the
+// additional bindings, it attempts to further simplify the expression. Many RPN expressions are
+// machine built, and then evaluated hundreds of thousands of times. The Partial method will
+// simplify all possible operations on the expression and return a new expression
+//
+//	func example1() {
+//		// Recall that New invokes Partial on your behalf.
+//		// (below is example actually found in config file)
+//		exp, err := gorpn.New("0,0,GT,qps,0,0,EQ,-2,0,IF,IF")
+//		if err != nil {
+//			panic(err)
+//		}
+//		s := exp.String() // "2"
+//	}
+//
+//	func example2() {
+//		// Recall that New invokes Partial on your behalf.
+//		// (below is example actually found in config file)
+//		exp, err := gorpn.New("1,0,GT,qps,-2,IF")
+//		if err != nil {
+//			panic(err)
+//		}
+//		s := exp.String() // "qps"
+//	}
+//
+// While simplification of the initial RPN is great, there are many times where you might want to
+// create a new expression with some of the variables bound to a particular set of values. The new
+// expression will be further optimized for running many times.
+//
+//	func example2() {
+//		// Recall that New invokes Partial on your behalf.
+//		exp1, err := gorpn.New("foo,1000,*,bar,3,+,/")
+//		if err != nil {
+//			panic(err)
+//		}
+//		s1 := exp1.String() // "foo,1000,*,bar,3,+,/"
+//
+//		exp2, err := exp1.Partial(map[string]interface{}{"bar":13})
+//		if err != nil {
+//			panic(err)
+//		}
+//		s2 := exp2.String() // "foo,1000,*,16,/"
+//	}
+//
+func (e *Expression) Partial(bindings map[string]interface{}) (*Expression, error) {
+	// NOTE: We leave exp.performTimeSubstitutions as its default boolean value of false,
+	// preventing time substitutions from being made during this simplify operation
+	exp := &Expression{
+		delimiter:          e.delimiter,
+		secondsPerInterval: e.secondsPerInterval,
+		tokens:             make([]interface{}, len(e.tokens)),
+		scratchSize:        e.scratchSize,
+		scratch:            make([]interface{}, e.scratchSize),
+		isFloat:            make([]bool, e.scratchSize),
+	}
+	copy(exp.tokens, e.tokens)
+
+	if err := exp.simplify(bindings); err != nil {
+		return nil, err
+	}
+
+	// exp will need to know about time when Evaluate is called on it
+	exp.performTimeSubstitutions = e.performTimeSubstitutions
+
+	// promote what's remaining in work area to new simplified stored program
+	exp.tokens = exp.tokens[:exp.scratchHead] // first, shrink tokens slice
+	copy(exp.tokens, exp.scratch)             // then copy
+
+	return exp, nil
 }
 
 func (e Expression) valid(bindings map[string]interface{}) bool {
@@ -374,10 +480,10 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 		// // ??? not sure if we want this
 		// // ??? also, if we have LTIME, we could get TIME, so this needs to be figured out
 		// if epoch, ok := bindings["LTIME"]; ok {
-		// 	jTimeSeconds, isTimeSet = epoch.(float64)
-		// 	if !isTimeSet {
-		// 		return newErrSyntax("LTIME ought to be bound to number rather than %T", epoch)
-		// 	}
+		//	jTimeSeconds, isTimeSet = epoch.(float64)
+		//	if !isTimeSet {
+		//		return newErrSyntax("LTIME ought to be bound to number rather than %T", epoch)
+		//	}
 		// }
 	}
 
