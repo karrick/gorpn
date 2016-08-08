@@ -34,6 +34,13 @@ func TestNewExpressionInvalidDelimiter(t *testing.T) {
 	}
 }
 
+func TestNewExpressionInvalidInterval(t *testing.T) {
+	_, err := New("13", SecondsPerInterval(0))
+	if _, ok := err.(ErrSyntax); err == nil || !ok {
+		t.Errorf("Actual: %#v; Expected: %#v", err, "cannot use + operator for delimiter")
+	}
+}
+
 func TestNewExpressionEmptyToken(t *testing.T) {
 	_, err := New(",")
 	switch err.(type) {
