@@ -27,11 +27,11 @@ type arityTuple struct {
 // arity resolves to the number of items an operation must pop, and
 // how many of those must be floats
 var arity = map[string]arityTuple{
-	"%":        {2, 2, 2, 0, 0},
-	"*":        {2, 2, 2, 0, 0},
-	"+":        {2, 2, 2, 0, 0},
-	"-":        {2, 2, 2, 0, 0},
-	"/":        {2, 2, 2, 0, 0},
+	"%":        {2, 2, 0, 0, 0},
+	"*":        {2, 2, 0, 0, 0},
+	"+":        {2, 2, 0, 0, 0},
+	"-":        {2, 2, 0, 0, 0},
+	"/":        {2, 2, 0, 0, 0},
 	"ABS":      {1, 1, 1, 0, 0},
 	"ADDNAN":   {2, 2, 2, 0, 0},
 	"ATAN":     {1, 1, 1, 0, 0},
@@ -206,7 +206,7 @@ type Expression struct {
 	scratchSize int           // how much work area this needs
 	scratchHead int           // index of top of scratch and isFloat slices
 	scratch     []interface{} // work area where calculations are done
-	isFloat     []bool        // true iff corresponding scratch item is a float64
+	isFloat     []bool        // true iff corresponding scratch item is a float64 (consider using reflection, but might be slower)
 }
 
 // New returns a new RPN Expression based on some expression.  Creating a new RPN expression
@@ -659,30 +659,121 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 					if !cannotSimplify {
 						switch token {
 						case "+":
-							result = e.scratch[indexOfFirstArg].(float64) + e.scratch[indexOfFirstArg+1].(float64)
-						case "-":
-							result = e.scratch[indexOfFirstArg].(float64) - e.scratch[indexOfFirstArg+1].(float64)
-						case "*":
-							result = e.scratch[indexOfFirstArg].(float64) * e.scratch[indexOfFirstArg+1].(float64)
-						case "/":
-							result = e.scratch[indexOfFirstArg].(float64) / e.scratch[indexOfFirstArg+1].(float64)
-						case "%":
-							result = math.Mod(e.scratch[indexOfFirstArg].(float64), e.scratch[indexOfFirstArg+1].(float64))
-						case "POW":
-							if e.isFloat[indexOfFirstArg+1] {
-								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
-									result = 1
-								} else if b == 1 {
-									result = e.scratch[indexOfFirstArg]
-								} else if e.isFloat[indexOfFirstArg] {
-									result = math.Pow(e.scratch[indexOfFirstArg].(float64), b)
+							if e.isFloat[indexOfFirstArg] { // a is float
+								if e.isFloat[indexOfFirstArg+1] { // b is also float
+									result = e.scratch[indexOfFirstArg].(float64) + e.scratch[indexOfFirstArg+1].(float64)
+								} else if a := e.scratch[indexOfFirstArg].(float64); a == 0 {
+									result = e.scratch[indexOfFirstArg+1]
 								} else {
 									cannotSimplify = true
 								}
-							} else {
+							} else if e.isFloat[indexOfFirstArg+1] { // only b is float
+								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
+									result = e.scratch[indexOfFirstArg]
+								} else {
+									cannotSimplify = true
+								}
+							} else { // neither is float
 								cannotSimplify = true
 							}
-
+						case "-":
+							if e.isFloat[indexOfFirstArg] { // a is float
+								if e.isFloat[indexOfFirstArg+1] { // b is also float
+									result = e.scratch[indexOfFirstArg].(float64) - e.scratch[indexOfFirstArg+1].(float64)
+								} else { // only a is float
+									cannotSimplify = true
+								}
+							} else if e.isFloat[indexOfFirstArg+1] { // only b is float
+								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
+									result = e.scratch[indexOfFirstArg]
+								} else {
+									cannotSimplify = true
+								}
+							} else { // neither is float
+								cannotSimplify = true
+							}
+						case "*":
+							if e.isFloat[indexOfFirstArg] { // a is float
+								if e.isFloat[indexOfFirstArg+1] { // b is also float
+									result = e.scratch[indexOfFirstArg].(float64) * e.scratch[indexOfFirstArg+1].(float64)
+								} else if a := e.scratch[indexOfFirstArg].(float64); a == 0 {
+									result = 0
+								} else if a == 1 {
+									result = e.scratch[indexOfFirstArg+1]
+								} else {
+									cannotSimplify = true
+								}
+							} else if e.isFloat[indexOfFirstArg+1] { // only b is float
+								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
+									result = 0
+								} else if b == 1 {
+									result = e.scratch[indexOfFirstArg]
+								} else {
+									cannotSimplify = true
+								}
+							} else { // neither is float
+								cannotSimplify = true
+							}
+						case "/":
+							if e.isFloat[indexOfFirstArg] { // a is float
+								if e.isFloat[indexOfFirstArg+1] { // b is also float
+									result = e.scratch[indexOfFirstArg].(float64) / e.scratch[indexOfFirstArg+1].(float64)
+								} else if a := e.scratch[indexOfFirstArg].(float64); a == 0 {
+									result = float64(0)
+								} else {
+									cannotSimplify = true
+								}
+							} else if e.isFloat[indexOfFirstArg+1] { // only b is float
+								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
+									result = math.NaN()
+								} else if b == 1 {
+									result = e.scratch[indexOfFirstArg]
+								} else {
+									cannotSimplify = true
+								}
+							} else { // neither is float
+								cannotSimplify = true
+							}
+						case "%":
+							if e.isFloat[indexOfFirstArg] { // a is float
+								if e.isFloat[indexOfFirstArg+1] { // b is also float
+									result = math.Mod(e.scratch[indexOfFirstArg].(float64), e.scratch[indexOfFirstArg+1].(float64))
+								} else {
+									cannotSimplify = true
+								}
+							} else if e.isFloat[indexOfFirstArg+1] { // only b is float
+								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
+									result = math.NaN()
+								} else if b == 1 {
+									result = float64(0)
+								} else {
+									cannotSimplify = true
+								}
+							} else { // neither is float
+								cannotSimplify = true
+							}
+						case "POW":
+							if e.isFloat[indexOfFirstArg] { // a is float
+								if e.isFloat[indexOfFirstArg+1] { // b is also float
+									result = math.Pow(e.scratch[indexOfFirstArg].(float64), e.scratch[indexOfFirstArg+1].(float64))
+								} else if a := e.scratch[indexOfFirstArg].(float64); a == 0 {
+									result = float64(0)
+								} else if a == 1 {
+									result = float64(1)
+								} else {
+									cannotSimplify = true
+								}
+							} else if e.isFloat[indexOfFirstArg+1] { // only b is float
+								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
+									result = float64(1)
+								} else if b == 1 {
+									result = e.scratch[indexOfFirstArg]
+								} else {
+									cannotSimplify = true
+								}
+							} else { // neither is float
+								cannotSimplify = true
+							}
 						case "ADDNAN":
 							firstNaN = math.IsNaN(e.scratch[indexOfFirstArg].(float64))
 							secondNaN = math.IsNaN(e.scratch[indexOfFirstArg+1].(float64))
