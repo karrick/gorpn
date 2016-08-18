@@ -231,6 +231,68 @@ func TestNewExpressionAVG(t *testing.T) {
 	}
 }
 
+func TestNewExpressionSMIN(t *testing.T) {
+	errors := map[string]string{
+		"1,2,3,-1,SMIN":     "syntax error : SMIN operator requires positive finite integer: -1",
+		"1,2,3,0,SMIN":      "syntax error : SMIN operator requires positive finite integer: 0",
+		"1,2,3,4,SMIN":      "syntax error : SMIN 4 items, but only 3 on stack",
+		"1,2,3,INF,SMIN":    "syntax error : SMIN operator requires positive finite integer: +Inf",
+		"1,2,3,NEGINF,SMIN": "syntax error : SMIN operator requires positive finite integer: -Inf",
+	}
+	for i, e := range errors {
+		if _, err := New(i); err == nil || err.Error() != e {
+			t.Errorf("Case: %s; Actual: %s; Expected: %#v", i, err, e)
+		}
+	}
+	list := map[string]string{
+		"a,b,c,3,SMIN":        "a,b,c,3,SMIN", // cannot find minimum of open variables
+		"13,42,2,SMIN":        "13",
+		"42,13,2,SMIN":        "13",
+		"42,13,NEGINF,3,SMIN": "NEGINF",
+		"13,a,ISINF,2,SMIN":   "13,a,ISINF,2,SMIN",
+	}
+	for input, output := range list {
+		exp, err := New(input)
+		if err != nil {
+			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
+		}
+		if exp.String() != output {
+			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, exp.String(), output)
+		}
+	}
+}
+
+func TestNewExpressionSMAX(t *testing.T) {
+	errors := map[string]string{
+		"1,2,3,-1,SMAX":     "syntax error : SMAX operator requires positive finite integer: -1",
+		"1,2,3,0,SMAX":      "syntax error : SMAX operator requires positive finite integer: 0",
+		"1,2,3,4,SMAX":      "syntax error : SMAX 4 items, but only 3 on stack",
+		"1,2,3,INF,SMAX":    "syntax error : SMAX operator requires positive finite integer: +Inf",
+		"1,2,3,NEGINF,SMAX": "syntax error : SMAX operator requires positive finite integer: -Inf",
+	}
+	for i, e := range errors {
+		if _, err := New(i); err == nil || err.Error() != e {
+			t.Errorf("Case: %s; Actual: %s; Expected: %#v", i, err, e)
+		}
+	}
+	list := map[string]string{
+		"a,b,c,3,SMAX":      "a,b,c,3,SMAX", // cannot find minimum of open variables
+		"13,42,2,SMAX":      "42",
+		"42,13,2,SMAX":      "42",
+		"42,INF,13,3,SMAX":  "INF",
+		"13,a,ISINF,2,SMAX": "13,a,ISINF,2,SMAX",
+	}
+	for input, output := range list {
+		exp, err := New(input)
+		if err != nil {
+			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
+		}
+		if exp.String() != output {
+			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, exp.String(), output)
+		}
+	}
+}
+
 func TestNewExpressionCEIL(t *testing.T) {
 	list := map[string]string{
 		"-0.5,CEIL":   "-0",
