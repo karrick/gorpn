@@ -4,8 +4,9 @@ RPN expression evaluator for Go
 
 ## References
 
-http://oss.oetiker.ch/rrdtool/doc/rrdgraph_rpn.en.html
-http://linux.die.net/man/1/cdeftutorial
+- http://oss.oetiker.ch/rrdtool/doc/rrdgraph_rpn.en.html
+
+- http://linux.die.net/man/1/cdeftutorial
 
 ## Usage Examples
 
