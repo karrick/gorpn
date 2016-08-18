@@ -101,6 +101,7 @@ Each logical function pushes 1 for 0, and 0 for false.
  * MINUTE (number of seconds in a minute)
  * NEGINF (push -Inf on stack)
  * NOW (push number of seconds since epoch)
+ * PERCENT: a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
  * POP (discard top element of stack)
  * REV (pop count of items. then pop that many items. reverse, then push back)
  * SORT (pop count of items. then pop that many items. sort, then push back)
@@ -131,9 +132,7 @@ The following features have yet to be implemented in this library.
  * PREDICTSIGMA
  * PREV
  * PREV(vname)
-
  * STDEV: a,b,c,3,STDEV -> stdev(a,b,c)
- * PERCENT: a,b,c,95,3,PERCENT -> find 95percentile of a,b,c
 
 ## Variable Binding
 
