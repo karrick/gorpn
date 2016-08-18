@@ -1047,6 +1047,35 @@ func TestNewExpressionROLL(t *testing.T) {
 	}
 }
 
+func TestNewExpressionPERCENT(t *testing.T) {
+	errors := map[string]string{
+		"0,1,2,0,3,PERCENT":       "syntax error : PERCENT operator requires positive finite integer: 0",
+		"1,2,3,95,4,PERCENT":      "syntax error : PERCENT 4 items, but only 3 on stack",
+		"1,2,3,95,INF,PERCENT":    "syntax error : PERCENT operator requires positive finite integer: +Inf",
+		"1,2,3,95,NEGINF,PERCENT": "syntax error : PERCENT operator requires positive finite integer: -Inf",
+		"1,2,3,INF,3,PERCENT":     "syntax error : PERCENT operator requires positive finite integer: +Inf",
+		"1,2,3,NEGINF,3,PERCENT":  "syntax error : PERCENT operator requires positive finite integer: -Inf",
+	}
+	for i, e := range errors {
+		if _, err := New(i); err == nil || err.Error() != e {
+			t.Errorf("Case: %s; Actual: %s; Expected: %#v", i, err, e)
+		}
+	}
+	list := map[string]string{
+		"a,b,c,95,3,PERCENT":          "a,b,c,95,3,PERCENT",
+		"15,20,35,40,50,30,5,PERCENT": "20",
+	}
+	for input, output := range list {
+		exp, err := New(input)
+		if err != nil {
+			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
+		}
+		if actual, want := exp.String(), output; actual != want {
+			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, actual, want)
+		}
+	}
+}
+
 func TestNewExpressionSORT(t *testing.T) {
 	errors := map[string]string{
 		"1,2,3,-1,SORT":     "syntax error : SORT operator requires positive finite integer: -1",

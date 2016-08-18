@@ -62,6 +62,7 @@ var arity = map[string]arityTuple{
 	"MIN":      {2, 0, 0, 2, 2},
 	"MINNAN":   {2, 0, 0, 2, 2},
 	"NE":       {2, 0, 0, 2, 2},
+	"PERCENT":  {2, 2, 2, 0, 0}, // n,m,PERCENT (a,b,c,95,3,PERCENT -> find 95percentile of a,b,c)
 	"POP":      {1, 0, 0, 0, 0},
 	"POW":      {2, 2, 0, 0, 0},
 	"RAD2DEG":  {1, 1, 1, 0, 0},
@@ -1417,6 +1418,37 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 									e.scratchHead++
 									stackUpdated = true
 								}
+							}
+						case "PERCENT": // n,m,PERCENT -- a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
+							// percentile
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							percent := e.scratch[indexOfFirstArg].(float64)
+							// count of values
+							if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), -1) {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg+1])
+							}
+							count = int(e.scratch[indexOfFirstArg+1].(float64))
+							if count > e.scratchHead-2 {
+								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-2)
+							}
+							items := make([]float64, 0, count)
+							// cannot calculate percent if any are operators
+							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+								if !e.isFloat[argIdx] {
+									cannotSimplify = true
+									break
+								}
+								items = append(items, e.scratch[argIdx].(float64))
+							}
+							if !cannotSimplify {
+								sort.Float64s(items)
+								index := int(math.Ceil(percent/100*float64(len(items)))) - 1
+								e.scratchHead -= count + 2 // drop the count
+								e.scratch[e.scratchHead] = items[index]
+								e.scratchHead++
+								stackUpdated = true
 							}
 						}
 					}
