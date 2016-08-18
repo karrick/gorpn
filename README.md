@@ -55,9 +55,9 @@ provide them in the form of a map of string variable names to their respective n
  * CEIL
  * FLOOR
  * MEDIAN
- * POW: a,b,POW -> a**b
  * SMIN: a,b,c,3,SMIN -> min(a,b,c)
  * SMAX: a,b,c,3,SMAX -> max(a,b,c)
+ * SQRT
 
 ### Boolean Functions
 
@@ -75,9 +75,9 @@ Each logical function pushes 1 for 0, and 0 for false.
 
 ### Exponentiation and Logarithmic Functions
 
- * EXP
- * LOG
- * SQRT
+ * EXP: a,EXP -> a^_e_, where _e_ is the natural number
+ * LOG: a,LOG -> log base _e_ of a, where _e_ is the natural number
+ * POW: a,b,POW -> a^b
 
 ### Geometric Functions
 
