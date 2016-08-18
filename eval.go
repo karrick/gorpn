@@ -498,7 +498,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 	// variables outside of loop to reduce allocations
 	var cannotSimplify, isFloat, ok, stackUpdated, firstNaN, secondNaN bool
 	var total, value float64
-	var argIdx, count, indexOfFirstArg, itemIdx, tokIdx, used int
+	var argIdx, additionalArgumentCount, indexOfFirstArg, itemIdx, tokIdx, used int
 	var opArity arityTuple
 	var result, tok interface{}
 
@@ -627,9 +627,9 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				return newErrSyntax("empty token")
 			default:
 				if opArity, ok = arity[token]; ok {
-					count = 0
-					stackUpdated = false
+					additionalArgumentCount = 0
 					cannotSimplify = false
+					stackUpdated = false
 
 					// ??? popCount = floatCount + nonOperatorCount
 
@@ -1006,11 +1006,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
-							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
 									if _, ok = arity[e.scratch[argIdx].(string)]; ok {
 										cannotSimplify = true
@@ -1020,16 +1020,16 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							if !cannotSimplify {
 								e.scratchHead--
-								if e.scratchHead-1+count > cap(e.scratch) {
+								if e.scratchHead-1+additionalArgumentCount > cap(e.scratch) {
 									// COPY requires larger scratch and isFloat slices
-									scratch := make([]interface{}, e.scratchHead+count)
+									scratch := make([]interface{}, e.scratchHead+additionalArgumentCount)
 									copy(scratch, e.scratch)
 									e.scratch = scratch
-									isFloat := make([]bool, e.scratchHead+count)
+									isFloat := make([]bool, e.scratchHead+additionalArgumentCount)
 									copy(isFloat, e.isFloat)
 									e.isFloat = isFloat
 								}
-								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 									e.scratch[e.scratchHead] = e.scratch[argIdx]
 									e.isFloat[e.scratchHead] = e.isFloat[argIdx]
 									e.scratchHead++
@@ -1040,11 +1040,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
-							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
 									if _, ok = arity[e.scratch[argIdx].(string)]; ok {
 										cannotSimplify = true
@@ -1053,8 +1053,8 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 								}
 							}
 							if !cannotSimplify {
-								e.scratch[e.scratchHead-1] = e.scratch[e.scratchHead-count-1]
-								e.isFloat[e.scratchHead-1] = e.isFloat[e.scratchHead-count-1]
+								e.scratch[e.scratchHead-1] = e.scratch[e.scratchHead-additionalArgumentCount-1]
+								e.isFloat[e.scratchHead-1] = e.isFloat[e.scratchHead-additionalArgumentCount-1]
 								stackUpdated = true
 							}
 						case "DUP":
@@ -1105,13 +1105,13 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
 							total = 0
 							used = 0
-							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
 									cannotSimplify = true
 									break
@@ -1122,24 +1122,20 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 								}
 							}
 							if !cannotSimplify {
-								e.scratchHead -= (count + opArity.popCount)
-								e.scratch[e.scratchHead] = total / float64(used)
-								e.isFloat[e.scratchHead] = true
-								e.scratchHead++
-								stackUpdated = true
+								result = total / float64(used)
 							}
 						case "STDEV":
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
 							total = 0
 							used = 0
-							items := make([]float64, count)
-							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+							items := make([]float64, 0, additionalArgumentCount)
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
 									cannotSimplify = true
 									break
@@ -1147,7 +1143,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 								if !math.IsNaN(e.scratch[argIdx].(float64)) {
 									total += e.scratch[argIdx].(float64)
 									used++
-									items[argIdx+indexOfFirstArg-count] = e.scratch[argIdx].(float64)
+									items = append(items, e.scratch[argIdx].(float64))
 								}
 							}
 							if !cannotSimplify {
@@ -1157,22 +1153,18 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 									diff := items[i] - mean
 									total += diff * diff
 								}
-								e.scratchHead -= (count + opArity.popCount)
-								e.scratch[e.scratchHead] = math.Sqrt(total / float64(used))
-								e.isFloat[e.scratchHead] = true
-								e.scratchHead++
-								stackUpdated = true
+								result = math.Sqrt(total / float64(used))
 							}
 						case "REV":
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
 							// cannot rev if any are operators
-							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
 									if _, ok = arity[e.scratch[argIdx].(string)]; ok {
 										cannotSimplify = true
@@ -1181,11 +1173,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 								}
 							}
 							if !cannotSimplify {
-								items := make([]interface{}, count)
+								items := make([]interface{}, additionalArgumentCount)
 								e.scratchHead-- // drop the count
-								copy(items, e.scratch[e.scratchHead-count:])
-								itemIdx = count - 1
-								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+								copy(items, e.scratch[e.scratchHead-additionalArgumentCount:])
+								itemIdx = additionalArgumentCount - 1
+								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 									// overwrite other elements
 									_, isFloat = items[itemIdx].(float64)
 									e.scratch[argIdx] = items[itemIdx]
@@ -1238,22 +1230,23 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
-							items := make([]float64, count)
-							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+							items := make([]float64, 0, additionalArgumentCount)
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
 									cannotSimplify = true
 									break
 								}
-								items[argIdx+indexOfFirstArg-count] = e.scratch[argIdx].(float64)
+								// items[argIdx+indexOfFirstArg-additionalArgumentCount] = e.scratch[argIdx].(float64)
+								items = append(items, e.scratch[argIdx].(float64))
 							}
 							if !cannotSimplify {
 								sort.Float64s(items)
-								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
-									e.scratch[argIdx] = items[argIdx+indexOfFirstArg-count]
+								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
+									e.scratch[argIdx] = items[argIdx+indexOfFirstArg-additionalArgumentCount]
 									e.isFloat[argIdx] = true
 								}
 								e.scratchHead-- // drop the count
@@ -1265,7 +1258,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(v) || math.IsInf(v, 1) || math.IsInf(v, -1) || v <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, v)
 							}
-							count = int(math.Ceil(v / float64(e.secondsPerInterval)))
+							additionalArgumentCount = int(math.Ceil(v / float64(e.secondsPerInterval)))
 							// get series label
 							label, ok := e.scratch[indexOfFirstArg].(string)
 							if !ok {
@@ -1279,13 +1272,13 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							} else {
 								if s, ok := series.([]float64); ok {
 									// log.Printf("label bound to []float64")
-									if count > len(s) {
-										return newErrSyntax("%s operand specifies %d values, but only %d available", token, count, len(s))
+									if additionalArgumentCount > len(s) {
+										return newErrSyntax("%s operand specifies %d values, but only %d available", token, additionalArgumentCount, len(s))
 									} else {
 										e.openBindings[label] = e.openBindings[label] - 1
 										total = 0
 										used = 0
-										for argIdx = len(s) - count; argIdx < len(s); argIdx++ {
+										for argIdx = len(s) - additionalArgumentCount; argIdx < len(s); argIdx++ {
 											total += s[argIdx]
 											used++
 										}
@@ -1305,7 +1298,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(v) || math.IsInf(v, 1) || math.IsInf(v, -1) || v <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, v)
 							}
-							count = int(math.Ceil(v / e.secondsPerInterval))
+							additionalArgumentCount = int(math.Ceil(v / e.secondsPerInterval))
 							// get series label
 							label, ok := e.scratch[indexOfFirstArg].(string)
 							if !ok {
@@ -1319,13 +1312,13 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							} else {
 								if s, ok := series.([]float64); ok {
 									// log.Printf("label bound to []float64")
-									if count > len(s) {
-										return newErrSyntax("%s operand specifies %d values, but only %d available", token, count, len(s))
+									if additionalArgumentCount > len(s) {
+										return newErrSyntax("%s operand specifies %d values, but only %d available", token, additionalArgumentCount, len(s))
 									} else {
 										e.openBindings[label] = e.openBindings[label] - 1
 										total = 0
 										used = 0
-										for argIdx = len(s) - count; argIdx < len(s); argIdx++ {
+										for argIdx = len(s) - additionalArgumentCount; argIdx < len(s); argIdx++ {
 											if !math.IsNaN(s[argIdx]) {
 												total += s[argIdx]
 												used++
@@ -1345,19 +1338,16 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
-							if count == 1 {
+							if additionalArgumentCount == 1 {
 								// pin-hole optimization for 1 item
-								e.scratchHead -= 1
-								e.scratch[e.scratchHead] = e.scratch[argIdx]
-								_, e.isFloat[e.scratchHead] = e.scratch[argIdx].(float64)
-								stackUpdated = true
+								result = e.scratch[indexOfFirstArg-1]
 							} else {
-								items := make([]float64, 0, count)
-								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+								items := make([]float64, 0, additionalArgumentCount)
+								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 									if !e.isFloat[argIdx] {
 										cannotSimplify = true
 										break
@@ -1365,30 +1355,23 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 									items = append(items, e.scratch[argIdx].(float64))
 								}
 								if !cannotSimplify {
-									e.scratchHead -= count + opArity.popCount
-									e.scratch[e.scratchHead] = median(items)
-									e.isFloat[e.scratchHead] = true
-									e.scratchHead++
-									stackUpdated = true
+									result = median(items)
 								}
 							}
 						case "MAD":
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
-							if count == 1 {
+							if additionalArgumentCount == 1 {
 								// pin-hole optimization for 1 item
-								e.scratchHead -= 1
-								e.scratch[e.scratchHead] = e.scratch[argIdx]
-								_, e.isFloat[e.scratchHead] = e.scratch[argIdx].(float64)
-								stackUpdated = true
+								result = e.scratch[indexOfFirstArg-1]
 							} else {
-								items := make([]float64, 0, count)
-								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+								items := make([]float64, 0, additionalArgumentCount)
+								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 									if !e.isFloat[argIdx] {
 										cannotSimplify = true
 										break
@@ -1396,93 +1379,65 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 									items = append(items, e.scratch[argIdx].(float64))
 								}
 								if !cannotSimplify {
-									e.scratchHead -= count + opArity.popCount
-									foo := median(items)
-									for i := range items {
-										items[i] = math.Abs(items[i] - foo)
-									}
-									e.scratch[e.scratchHead] = median(items)
-									e.isFloat[e.scratchHead] = true
-									e.scratchHead++
-									stackUpdated = true
+									result = mad(items)
 								}
 							}
 						case "SMAX":
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
-							if count == 1 {
+							if additionalArgumentCount == 1 {
 								// pin-hole optimization for 1 item
-								e.scratchHead -= 1
-								e.scratch[e.scratchHead] = e.scratch[argIdx]
-								_, e.isFloat[e.scratchHead] = e.scratch[argIdx].(float64)
-								stackUpdated = true
+								result = e.scratch[indexOfFirstArg-1]
 							} else {
-								items := make([]float64, 0, count)
-								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
-									if !e.isFloat[argIdx] {
-										cannotSimplify = true
-										break
-									}
-									items = append(items, e.scratch[argIdx].(float64))
-								}
-								if !cannotSimplify {
-									var max float64
-									// pop first item from list into the max
-									max, items = items[len(items)-1], items[:len(items)-1]
-									for _, value := range items {
-										if max < value {
-											max = value
+								if max, ok := e.scratch[indexOfFirstArg-1].(float64); !ok {
+									cannotSimplify = true
+								} else {
+									for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg-1; argIdx++ {
+										if !e.isFloat[argIdx] {
+											cannotSimplify = true
+											break
+										}
+										if item := e.scratch[argIdx].(float64); item > max {
+											max = item
 										}
 									}
-									e.scratchHead -= opArity.popCount + count
-									e.scratch[e.scratchHead] = max
-									e.isFloat[e.scratchHead] = true
-									e.scratchHead++
-									stackUpdated = true
+									if !cannotSimplify {
+										result = max
+									}
 								}
 							}
 						case "SMIN":
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							count = int(e.scratch[indexOfFirstArg].(float64))
-							if count > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
 							}
-							if count == 1 {
+							if additionalArgumentCount == 1 {
 								// pin-hole optimization for 1 item
-								e.scratchHead -= 1
-								e.scratch[e.scratchHead] = e.scratch[argIdx]
-								_, e.isFloat[e.scratchHead] = e.scratch[argIdx].(float64)
-								stackUpdated = true
+								result = e.scratch[indexOfFirstArg-1]
 							} else {
-								items := make([]float64, 0, count)
-								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
-									if !e.isFloat[argIdx] {
-										cannotSimplify = true
-										break
-									}
-									items = append(items, e.scratch[argIdx].(float64))
-								}
-								if !cannotSimplify {
-									var min float64
-									// pop first item from list into the minimum
-									min, items = items[len(items)-1], items[:len(items)-1]
-									for _, value := range items {
-										if min > value {
-											min = value
+								if min, ok := e.scratch[indexOfFirstArg-1].(float64); !ok {
+									cannotSimplify = true
+								} else {
+									for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg-1; argIdx++ {
+										if !e.isFloat[argIdx] {
+											cannotSimplify = true
+											break
+										}
+										if item := e.scratch[argIdx].(float64); item < min {
+											min = item
 										}
 									}
-									e.scratchHead -= opArity.popCount + count
-									e.scratch[e.scratchHead] = min
-									e.isFloat[e.scratchHead] = true
-									e.scratchHead++
-									stackUpdated = true
+									if !cannotSimplify {
+										result = min
+									}
 								}
 							}
 						case "PERCENT": // n,m,PERCENT -- a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
@@ -1495,13 +1450,13 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), -1) {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg+1])
 							}
-							count = int(e.scratch[indexOfFirstArg+1].(float64))
-							if count > e.scratchHead-2 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-2)
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg+1].(float64))
+							if additionalArgumentCount > e.scratchHead-2 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-2)
 							}
-							items := make([]float64, 0, count)
+							items := make([]float64, 0, additionalArgumentCount)
 							// cannot calculate percent if any are operators
-							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
 									cannotSimplify = true
 									break
@@ -1510,11 +1465,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							if !cannotSimplify {
 								sort.Float64s(items)
-								index := int(math.Ceil(percent/100*float64(len(items)))) - 1
-								e.scratchHead -= count + 2 // drop the count
-								e.scratch[e.scratchHead] = items[index]
-								e.scratchHead++
-								stackUpdated = true
+								result = items[int(math.Ceil(percent/100*float64(len(items))))-1]
 							}
 						}
 					}
@@ -1524,10 +1475,9 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 						e.isFloat[e.scratchHead] = false
 						e.scratchHead++
 					} else if !stackUpdated {
-						_, isFloat = result.(float64)
-						e.scratchHead -= opArity.popCount
+						e.scratchHead -= opArity.popCount + additionalArgumentCount
 						e.scratch[e.scratchHead] = result
-						e.isFloat[e.scratchHead] = isFloat
+						_, e.isFloat[e.scratchHead] = result.(float64)
 						e.scratchHead++
 					}
 				} else if value, err = strconv.ParseFloat(token, 64); err == nil {
@@ -1650,4 +1600,12 @@ func median(items []float64) float64 {
 		return (items[middle-1] + items[middle]) / 2
 	}
 	return items[middle]
+}
+
+func mad(items []float64) float64 {
+	med := median(items)
+	for i := range items {
+		items[i] = math.Abs(items[i] - med)
+	}
+	return median(items)
 }
