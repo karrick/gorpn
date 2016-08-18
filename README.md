@@ -55,6 +55,8 @@ provide them in the form of a map of string variable names to their respective n
  * CEIL
  * FLOOR
  * MEDIAN
+ * SMIN: a,b,c,3,SMIN -> min(a,b,c)
+ * SMAX: a,b,c,3,SMAX -> max(a,b,c)
 
 ### Boolean Functions
 
@@ -128,6 +130,10 @@ The following features have yet to be implemented in this library.
  * PREDICTSIGMA
  * PREV
  * PREV(vname)
+
+ * STDEV: a,b,c,3,STDEV -> stdev(a,b,c)
+ * POW: a,b,POW -> a**b
+ * PERCENT: a,b,c,95,3,PERCENT -> find 95percentile of a,b,c
 
 ## Variable Binding
 

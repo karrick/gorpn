@@ -67,6 +67,8 @@ var arity = map[string]arityTuple{
 	"REV":      {1, 1, 1, 0, 0}, // other operands cannot be operators
 	"ROLL":     {2, 2, 2, 0, 0}, // n,m,ROLL (rotate the top n elements of the stack by m)
 	"SIN":      {1, 1, 1, 0, 0},
+	"SMAX":     {1, 1, 1, 0, 0}, // other operands must be floats
+	"SMIN":     {1, 1, 1, 0, 0}, // other operands must be floats
 	"SORT":     {1, 1, 1, 0, 0}, // other operands must be floats
 	"SQRT":     {1, 1, 1, 0, 0},
 	"TREND":    {2, 1, 1, 2, 1}, // label,count,TREND
@@ -1221,6 +1223,84 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 									} else {
 										e.scratch[e.scratchHead] = items[middle]
 									}
+									e.isFloat[e.scratchHead] = true
+									e.scratchHead++
+									stackUpdated = true
+								}
+							}
+						case "SMAX":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							count = int(e.scratch[indexOfFirstArg].(float64))
+							if count > e.scratchHead-1 {
+								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+							}
+							if count == 1 {
+								// pin-hole optimization for 1 item
+								e.scratchHead -= 1
+								e.scratch[e.scratchHead] = e.scratch[argIdx]
+								_, e.isFloat[e.scratchHead] = e.scratch[argIdx].(float64)
+								stackUpdated = true
+							} else {
+								items := make([]float64, 0, count)
+								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+									if !e.isFloat[argIdx] {
+										cannotSimplify = true
+										break
+									}
+									items = append(items, e.scratch[argIdx].(float64))
+								}
+								if !cannotSimplify {
+									var max float64
+									// pop first item from list into the max
+									max, items = items[len(items)-1], items[:len(items)-1]
+									for _, value := range items {
+										if max < value {
+											max = value
+										}
+									}
+									e.scratchHead -= opArity.popCount + count
+									e.scratch[e.scratchHead] = max
+									e.isFloat[e.scratchHead] = true
+									e.scratchHead++
+									stackUpdated = true
+								}
+							}
+						case "SMIN":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							count = int(e.scratch[indexOfFirstArg].(float64))
+							if count > e.scratchHead-1 {
+								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+							}
+							if count == 1 {
+								// pin-hole optimization for 1 item
+								e.scratchHead -= 1
+								e.scratch[e.scratchHead] = e.scratch[argIdx]
+								_, e.isFloat[e.scratchHead] = e.scratch[argIdx].(float64)
+								stackUpdated = true
+							} else {
+								items := make([]float64, 0, count)
+								for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+									if !e.isFloat[argIdx] {
+										cannotSimplify = true
+										break
+									}
+									items = append(items, e.scratch[argIdx].(float64))
+								}
+								if !cannotSimplify {
+									var min float64
+									// pop first item from list into the minimum
+									min, items = items[len(items)-1], items[:len(items)-1]
+									for _, value := range items {
+										if min > value {
+											min = value
+										}
+									}
+									e.scratchHead -= opArity.popCount + count
+									e.scratch[e.scratchHead] = min
 									e.isFloat[e.scratchHead] = true
 									e.scratchHead++
 									stackUpdated = true
