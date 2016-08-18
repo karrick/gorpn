@@ -51,10 +51,8 @@ provide them in the form of a map of string variable names to their respective n
  * +, -, *, /, %
  * ABS
  * ADDNAN (add, but if one num is NaN/UNK, treat it as zero. if both NaN/UNK, then return NaN/UNK)
- * AVG (pop count of items, then compute avg, ignoring all UNK)
  * CEIL
  * FLOOR
- * MEDIAN
  * SMIN: a,b,c,3,SMIN -> min(a,b,c)
  * SMAX: a,b,c,3,SMAX -> max(a,b,c)
  * SQRT
@@ -88,6 +86,13 @@ Each logical function pushes 1 for 0, and 0 for false.
  * DEG2RAD
  * RAD2DEG
 
+### Statistics Functions
+
+ * AVG (pop count of items, then compute mean, ignoring all UNK)
+ * MEDIAN
+ * PERCENT: a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
+ * STDEV: a,b,c,3,STDEV -> stdev(a,b,c), ignoring all UNK
+
 ### Other Supported Constants and Functions
 
  * DAY (number of seconds in a day)
@@ -101,7 +106,6 @@ Each logical function pushes 1 for 0, and 0 for false.
  * MINUTE (number of seconds in a minute)
  * NEGINF (push -Inf on stack)
  * NOW (push number of seconds since epoch)
- * PERCENT: a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
  * POP (discard top element of stack)
  * REV (pop count of items. then pop that many items. reverse, then push back)
  * SORT (pop count of items. then pop that many items. sort, then push back)
@@ -132,7 +136,6 @@ The following features have yet to be implemented in this library.
  * PREDICTSIGMA
  * PREV
  * PREV(vname)
- * STDEV: a,b,c,3,STDEV -> stdev(a,b,c)
 
 ## Variable Binding
 

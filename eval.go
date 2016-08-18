@@ -73,6 +73,7 @@ var arity = map[string]arityTuple{
 	"SMIN":     {1, 1, 1, 0, 0}, // other operands must be floats
 	"SORT":     {1, 1, 1, 0, 0}, // other operands must be floats
 	"SQRT":     {1, 1, 1, 0, 0},
+	"STDEV":    {1, 1, 1, 0, 0}, // other operands must be floats
 	"TREND":    {2, 1, 1, 2, 1}, // label,count,TREND
 	"TRENDNAN": {2, 1, 1, 2, 1}, // label,count,TRENDNAN
 	"UN":       {1, 1, 1, 0, 0},
@@ -1000,7 +1001,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							count = int(e.scratch[indexOfFirstArg].(float64))
 							if count > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
 							}
 							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
@@ -1034,7 +1035,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							count = int(e.scratch[indexOfFirstArg].(float64))
 							if count > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
 							}
 							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
@@ -1099,7 +1100,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							count = int(e.scratch[indexOfFirstArg].(float64))
 							if count > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
 							}
 							total = 0
 							used = 0
@@ -1120,13 +1121,48 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 								e.scratchHead++
 								stackUpdated = true
 							}
+						case "STDEV":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							count = int(e.scratch[indexOfFirstArg].(float64))
+							if count > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
+							}
+							total = 0
+							used = 0
+							items := make([]float64, count)
+							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
+								if !e.isFloat[argIdx] {
+									cannotSimplify = true
+									break
+								}
+								if !math.IsNaN(e.scratch[argIdx].(float64)) {
+									total += e.scratch[argIdx].(float64)
+									used++
+									items[argIdx+indexOfFirstArg-count] = e.scratch[argIdx].(float64)
+								}
+							}
+							if !cannotSimplify {
+								mean := total / float64(used)
+								total = 0
+								for i := range items {
+									diff := items[i] - mean
+									total += diff * diff
+								}
+								e.scratchHead -= (count + opArity.popCount)
+								e.scratch[e.scratchHead] = math.Sqrt(total / float64(used))
+								e.isFloat[e.scratchHead] = true
+								e.scratchHead++
+								stackUpdated = true
+							}
 						case "REV":
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
 							count = int(e.scratch[indexOfFirstArg].(float64))
 							if count > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
 							}
 							// cannot rev if any are operators
 							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
@@ -1158,7 +1194,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							n := int(e.scratch[indexOfFirstArg].(float64))
 							if n > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, n, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, n, e.scratchHead-1)
 							}
 							// m
 							if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), -1) {
@@ -1166,7 +1202,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							m := int(e.scratch[indexOfFirstArg+1].(float64))
 							if m > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, m, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, m, e.scratchHead-1)
 							}
 							// cannot roll if any are operators
 							for argIdx = indexOfFirstArg - n; argIdx < indexOfFirstArg; argIdx++ {
@@ -1197,7 +1233,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							count = int(e.scratch[indexOfFirstArg].(float64))
 							if count > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
 							}
 							items := make([]float64, count)
 							for argIdx = indexOfFirstArg - count; argIdx < indexOfFirstArg; argIdx++ {
@@ -1304,7 +1340,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							count = int(e.scratch[indexOfFirstArg].(float64))
 							if count > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
 							}
 							if count == 1 {
 								// pin-hole optimization for 1 item
@@ -1342,7 +1378,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							count = int(e.scratch[indexOfFirstArg].(float64))
 							if count > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
 							}
 							if count == 1 {
 								// pin-hole optimization for 1 item
@@ -1381,7 +1417,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							count = int(e.scratch[indexOfFirstArg].(float64))
 							if count > e.scratchHead-1 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-1)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-1)
 							}
 							if count == 1 {
 								// pin-hole optimization for 1 item
@@ -1426,7 +1462,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 							count = int(e.scratch[indexOfFirstArg+1].(float64))
 							if count > e.scratchHead-2 {
-								return newErrSyntax("%s %d items, but only %d on stack", token, count, e.scratchHead-2)
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, count, e.scratchHead-2)
 							}
 							items := make([]float64, 0, count)
 							// cannot calculate percent if any are operators

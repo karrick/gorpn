@@ -261,7 +261,7 @@ func TestNewExpressionAVG(t *testing.T) {
 	errors := map[string]string{
 		"1,2,3,-1,AVG":     "syntax error : AVG operator requires positive finite integer: -1",
 		"1,2,3,0,AVG":      "syntax error : AVG operator requires positive finite integer: 0",
-		"1,2,3,4,AVG":      "syntax error : AVG 4 items, but only 3 on stack",
+		"1,2,3,4,AVG":      "syntax error : AVG operand requires 4 items, but only 3 on stack",
 		"1,2,3,INF,AVG":    "syntax error : AVG operator requires positive finite integer: +Inf",
 		"1,2,3,NEGINF,AVG": "syntax error : AVG operator requires positive finite integer: -Inf",
 	}
@@ -289,11 +289,41 @@ func TestNewExpressionAVG(t *testing.T) {
 	}
 }
 
+func TestNewExpressionSTDEV(t *testing.T) {
+	errors := map[string]string{
+		"1,2,3,-1,STDEV":     "syntax error : STDEV operator requires positive finite integer: -1",
+		"1,2,3,0,STDEV":      "syntax error : STDEV operator requires positive finite integer: 0",
+		"1,2,3,4,STDEV":      "syntax error : STDEV operand requires 4 items, but only 3 on stack",
+		"1,2,3,INF,STDEV":    "syntax error : STDEV operator requires positive finite integer: +Inf",
+		"1,2,3,NEGINF,STDEV": "syntax error : STDEV operator requires positive finite integer: -Inf",
+	}
+	for i, e := range errors {
+		if _, err := New(i); err == nil || err.Error() != e {
+			t.Errorf("Case: %s; Actual: %s; Expected: %#v", i, err, e)
+		}
+	}
+	list := map[string]string{
+		"a,b,c,3,STDEV":      "a,b,c,3,STDEV", // cannot average variables
+		"13,42,2,STDEV":      "14.5",
+		"42,13,2,STDEV":      "14.5",
+		"13,a,ISINF,2,STDEV": "13,a,ISINF,2,STDEV",
+	}
+	for input, output := range list {
+		exp, err := New(input)
+		if err != nil {
+			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
+		}
+		if exp.String() != output {
+			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, exp.String(), output)
+		}
+	}
+}
+
 func TestNewExpressionSMIN(t *testing.T) {
 	errors := map[string]string{
 		"1,2,3,-1,SMIN":     "syntax error : SMIN operator requires positive finite integer: -1",
 		"1,2,3,0,SMIN":      "syntax error : SMIN operator requires positive finite integer: 0",
-		"1,2,3,4,SMIN":      "syntax error : SMIN 4 items, but only 3 on stack",
+		"1,2,3,4,SMIN":      "syntax error : SMIN operand requires 4 items, but only 3 on stack",
 		"1,2,3,INF,SMIN":    "syntax error : SMIN operator requires positive finite integer: +Inf",
 		"1,2,3,NEGINF,SMIN": "syntax error : SMIN operator requires positive finite integer: -Inf",
 	}
@@ -324,7 +354,7 @@ func TestNewExpressionSMAX(t *testing.T) {
 	errors := map[string]string{
 		"1,2,3,-1,SMAX":     "syntax error : SMAX operator requires positive finite integer: -1",
 		"1,2,3,0,SMAX":      "syntax error : SMAX operator requires positive finite integer: 0",
-		"1,2,3,4,SMAX":      "syntax error : SMAX 4 items, but only 3 on stack",
+		"1,2,3,4,SMAX":      "syntax error : SMAX operand requires 4 items, but only 3 on stack",
 		"1,2,3,INF,SMAX":    "syntax error : SMAX operator requires positive finite integer: +Inf",
 		"1,2,3,NEGINF,SMAX": "syntax error : SMAX operator requires positive finite integer: -Inf",
 	}
@@ -374,7 +404,7 @@ func TestNewExpressionCOPY(t *testing.T) {
 	errors := map[string]string{
 		"1,2,3,-1,COPY":     "syntax error : COPY operator requires positive finite integer: -1",
 		"1,2,3,0,COPY":      "syntax error : COPY operator requires positive finite integer: 0",
-		"1,2,3,4,COPY":      "syntax error : COPY 4 items, but only 3 on stack",
+		"1,2,3,4,COPY":      "syntax error : COPY operand requires 4 items, but only 3 on stack",
 		"1,2,3,INF,COPY":    "syntax error : COPY operator requires positive finite integer: +Inf",
 		"1,2,3,NEGINF,COPY": "syntax error : COPY operator requires positive finite integer: -Inf",
 	}
@@ -646,7 +676,7 @@ func TestNewExpressionINDEX(t *testing.T) {
 	errors := map[string]string{
 		"1,2,3,-1,INDEX":     "syntax error : INDEX operator requires positive finite integer: -1",
 		"1,2,3,0,INDEX":      "syntax error : INDEX operator requires positive finite integer: 0",
-		"1,2,3,4,INDEX":      "syntax error : INDEX 4 items, but only 3 on stack",
+		"1,2,3,4,INDEX":      "syntax error : INDEX operand requires 4 items, but only 3 on stack",
 		"1,2,3,INF,INDEX":    "syntax error : INDEX operator requires positive finite integer: +Inf",
 		"1,2,3,NEGINF,INDEX": "syntax error : INDEX operator requires positive finite integer: -Inf",
 	}
@@ -983,7 +1013,7 @@ func TestNewExpressionREV(t *testing.T) {
 	errors := map[string]string{
 		"1,2,3,-1,REV":     "syntax error : REV operator requires positive finite integer: -1",
 		"1,2,3,0,REV":      "syntax error : REV operator requires positive finite integer: 0",
-		"1,2,3,4,REV":      "syntax error : REV 4 items, but only 3 on stack",
+		"1,2,3,4,REV":      "syntax error : REV operand requires 4 items, but only 3 on stack",
 		"1,2,3,INF,REV":    "syntax error : REV operator requires positive finite integer: +Inf",
 		"1,2,3,NEGINF,REV": "syntax error : REV operator requires positive finite integer: -Inf",
 	}
@@ -1015,7 +1045,7 @@ func TestNewExpressionROLL(t *testing.T) {
 
 	errors := map[string]string{
 		"1,2,0,3,ROLL":      "syntax error : ROLL operator requires positive finite integer: 0",
-		"1,2,3,4,ROLL":      "syntax error : ROLL 4 items, but only 3 on stack",
+		"1,2,3,4,ROLL":      "syntax error : ROLL operand requires 4 items, but only 3 on stack",
 		"1,2,3,INF,ROLL":    "syntax error : ROLL operator requires positive finite integer: +Inf",
 		"1,2,3,NEGINF,ROLL": "syntax error : ROLL operator requires positive finite integer: -Inf",
 		"1,2,INF,3,ROLL":    "syntax error : ROLL operator requires positive finite integer: +Inf",
@@ -1050,7 +1080,7 @@ func TestNewExpressionROLL(t *testing.T) {
 func TestNewExpressionPERCENT(t *testing.T) {
 	errors := map[string]string{
 		"0,1,2,0,3,PERCENT":       "syntax error : PERCENT operator requires positive finite integer: 0",
-		"1,2,3,95,4,PERCENT":      "syntax error : PERCENT 4 items, but only 3 on stack",
+		"1,2,3,95,4,PERCENT":      "syntax error : PERCENT operand requires 4 items, but only 3 on stack",
 		"1,2,3,95,INF,PERCENT":    "syntax error : PERCENT operator requires positive finite integer: +Inf",
 		"1,2,3,95,NEGINF,PERCENT": "syntax error : PERCENT operator requires positive finite integer: -Inf",
 		"1,2,3,INF,3,PERCENT":     "syntax error : PERCENT operator requires positive finite integer: +Inf",
@@ -1080,7 +1110,7 @@ func TestNewExpressionSORT(t *testing.T) {
 	errors := map[string]string{
 		"1,2,3,-1,SORT":     "syntax error : SORT operator requires positive finite integer: -1",
 		"1,2,3,0,SORT":      "syntax error : SORT operator requires positive finite integer: 0",
-		"1,2,3,4,SORT":      "syntax error : SORT 4 items, but only 3 on stack",
+		"1,2,3,4,SORT":      "syntax error : SORT operand requires 4 items, but only 3 on stack",
 		"1,2,3,INF,SORT":    "syntax error : SORT operator requires positive finite integer: +Inf",
 		"1,2,3,NEGINF,SORT": "syntax error : SORT operator requires positive finite integer: -Inf",
 	}
@@ -1593,7 +1623,7 @@ func TestNewExpressionMEDIAN(t *testing.T) {
 	errors := map[string]string{
 		"1,2,3,-1,MEDIAN":     "syntax error : MEDIAN operator requires positive finite integer: -1",
 		"1,2,3,0,MEDIAN":      "syntax error : MEDIAN operator requires positive finite integer: 0",
-		"1,2,3,4,MEDIAN":      "syntax error : MEDIAN 4 items, but only 3 on stack",
+		"1,2,3,4,MEDIAN":      "syntax error : MEDIAN operand requires 4 items, but only 3 on stack",
 		"1,2,3,INF,MEDIAN":    "syntax error : MEDIAN operator requires positive finite integer: +Inf",
 		"1,2,3,NEGINF,MEDIAN": "syntax error : MEDIAN operator requires positive finite integer: -Inf",
 	}
