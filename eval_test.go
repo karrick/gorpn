@@ -1664,6 +1664,53 @@ func TestNewExpressionMEDIAN(t *testing.T) {
 	}
 }
 
+// MAD
+
+func TestNewExpressionMAD(t *testing.T) {
+	errors := map[string]string{
+		"1,2,3,-1,MAD":     "syntax error : MAD operator requires positive finite integer: -1",
+		"1,2,3,0,MAD":      "syntax error : MAD operator requires positive finite integer: 0",
+		"1,2,3,4,MAD":      "syntax error : MAD operand requires 4 items, but only 3 on stack",
+		"1,2,3,INF,MAD":    "syntax error : MAD operator requires positive finite integer: +Inf",
+		"1,2,3,NEGINF,MAD": "syntax error : MAD operator requires positive finite integer: -Inf",
+	}
+	for i, e := range errors {
+		if _, err := New(i); err == nil || err.Error() != e {
+			t.Errorf("Case: %s; Actual: %s; Expected: %#v", i, err, e)
+		}
+	}
+	list := map[string]string{
+		// "a,b,c,3,MAD": "a,b,c,3,MAD", // cannot sort variables
+
+		// one item
+		"13,1,MAD": "13",
+		"a,1,MAD":  "a", // pin-hole optimization
+
+		// two items -- average
+		"a,b,c,d,e,f,13,42,2,MAD": "a,b,c,d,e,f,14.5",
+		"42,13,2,MAD":             "14.5", // median([|42 - 27.5|, |13 - 27.5|]) -> median([14.5, 14.5]) -> 14.5
+
+		// three items -- middle
+		"42,666,13,3,MAD": "29", // median([|42-42|, |666-42|, |13-42|]) -> median([0, 624, 29]) -> 29
+		// four items -- average of middle
+		"1,1,2,3,4,MAD": "0.5", // median([|1-1.5|, |1-1.5|, |2-1.5|, |3-1.5|]) -> median([.5, .5, .5, 1.5]) -> .5
+		// five items -- middle
+		"3,2,5,1,4,5,MAD": "1", // median([|3-3|, |2-3|, |5-3|, |1-3|, |4-3|]) -> median([0, 1, 2, 2, 1]) -> median([0, 1, 1, 2, 2]) -> 1
+		//
+		"13,a,ISINF,2,MAD": "13,a,ISINF,2,MAD",
+		"67,42,13,2,MAD,-": "52.5", // 67 - 14.5
+	}
+	for input, output := range list {
+		exp, err := New(input)
+		if err != nil {
+			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
+		}
+		if exp.String() != output {
+			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, exp.String(), output)
+		}
+	}
+}
+
 // NEWDAY, NEWWEEK, NEWMONTH, NEWYEAR
 
 // NEWDAY

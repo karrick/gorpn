@@ -89,31 +89,32 @@ Each logical function pushes 1 for 0, and 0 for false.
 ### Statistics Functions
 
  * AVG (pop count of items, then compute mean, ignoring all UNK)
- * MEDIAN
+ * MAD: a,b,c,3,MAD -> median absolute deviation of [a, b, c]
+ * MEDIAN: a,b,c,3,MEDIAN -> median of [a, b, c]
  * PERCENT: a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
  * STDEV: a,b,c,3,STDEV -> stdev(a,b,c), ignoring all UNK
 
 ### Other Supported Constants and Functions
 
- * DAY (number of seconds in a day)
- * DUP (duplicate value on top of stack)
- * EXC (exchange top two items on stack)
- * HOUR (number of seconds in an hour)
- * INF (push +Inf on stack)
- * LIMIT (pop 2 and define inclusive range. pop third. if third in range, push it back, otherwise push UNK. if any of 3 numbers is UNK or ±Inf, push UNK)
- * MAX (UNK if either number is UNK)
- * MIN (UNK if either number is UNK)
- * MINUTE (number of seconds in a minute)
- * NEGINF (push -Inf on stack)
- * NOW (push number of seconds since epoch)
- * POP (discard top element of stack)
- * REV (pop count of items. then pop that many items. reverse, then push back)
- * SORT (pop count of items. then pop that many items. sort, then push back)
- * STEPWIDTH (current step measured in seconds)
- * TREND (create a "sliding window" average of another data series)
- * TRENDNAN (create a "sliding window" average of another data series)
- * UNKN (push UNK)
- * WEEK (number of seconds in a week)
+ * DAY: number of seconds in a day
+ * DUP: duplicate value on top of stack
+ * EXC: exchange top two items on stack
+ * HOUR: number of seconds in an hour
+ * INF: push +Inf on stack
+ * LIMIT: pop 2 and define inclusive range. pop third. if third in range, push it back, otherwise push UNK. if any of 3 numbers is UNK or ±Inf, push UNK
+ * MAX: UNK if either number is UNK
+ * MIN: UNK if either number is UNK
+ * MINUTE: number of seconds in a minute
+ * NEGINF: push -Inf on stack
+ * NOW: push number of seconds since epoch
+ * POP: discard top element of stack
+ * REV: pop count of items. then pop that many items. reverse, then push back
+ * SORT: pop count of items. then pop that many items. sort, then push back
+ * STEPWIDTH: current step measured in seconds
+ * TREND: create a "sliding window" average of another data series
+ * TRENDNAN: create a "sliding window" average of another data series
+ * UNKN: push UNK
+ * WEEK: number of seconds in a week
 
 ### Features Supported with Variable Binding
 
@@ -122,10 +123,10 @@ of a set of bindings. See below for more information.
 
  * COUNT
  * LTIME
- * NEWDAY (push 1 if datum is first datum for day)
- * NEWMONTH (push 1 if datum is first datum for month)
- * NEWWEEK (push 1 if datum is first datum for week)
- * NEWYEAR (push 1 if datum is first datum for year)
+ * NEWDAY: push 1 if datum is first datum for day
+ * NEWMONTH: push 1 if datum is first datum for month
+ * NEWWEEK: push 1 if datum is first datum for week
+ * NEWYEAR: push 1 if datum is first datum for year
  * TIME
 
 ## Unsupported Features
