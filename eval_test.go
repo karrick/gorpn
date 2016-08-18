@@ -104,24 +104,77 @@ func TestDivisorNaN(t *testing.T) {
 
 func TestNewExpressionSimplifiesWhatItCan(t *testing.T) {
 	list := map[string]string{
+		// addition
+		"0,b,+":    "b",
+		"1,b,+":    "1,b,+",
 		"5,2,+":    "7",
-		"5,2,-":    "3",
-		"5,2,*":    "10",
-		"5,2,/":    "2.5",
-		"5,2,%":    "1",
-		"5,NaN,/":  "UNKN", // NaN is represented as UNKN (don't like this)
-		"5,UNKN,/": "UNKN", // NaN is represented as UNKN (don't like this)
-		"2,8,POW":  "256",
-		"8,2,POW":  "64",
-		"x,0,POW":  "1",
-		"x,1,POW":  "x",
+		"2,5,+":    "7",
+		"a,0,+":    "a",
+		"a,1,+":    "a,1,+",
+		"a,b,+":    "a,b,+",
+		"x,x,+":    "x,x,+",
+		"UNKN,2,+": "UNKN",
+		"2,UNKN,+": "UNKN",
 
-		"x,x,+":   "x,x,+",
-		"x,x,-":   "x,x,-",
-		"x,x,*":   "x,x,*",
-		"x,x,/":   "x,x,/",
-		"x,x,%":   "x,x,%",
-		"x,x,POW": "x,x,POW",
+		// subtraction
+		"0,b,-":    "0,b,-",
+		"1,b,-":    "1,b,-",
+		"5,2,-":    "3",
+		"2,5,-":    "-3",
+		"a,0,-":    "a",
+		"a,1,-":    "a,1,-",
+		"a,b,-":    "a,b,-",
+		"x,x,-":    "x,x,-", // cannot simplify to 0 because x might be infinite
+		"UNKN,2,-": "UNKN",
+		"2,UNKN,-": "UNKN",
+
+		// multiplication
+		"0,b,*":    "0",
+		"1,b,*":    "b",
+		"5,2,*":    "10",
+		"2,5,*":    "10",
+		"a,0,*":    "0",
+		"a,1,*":    "a",
+		"a,b,*":    "a,b,*",
+		"x,x,*":    "x,x,*",
+		"UNKN,2,*": "UNKN",
+		"2,UNKN,*": "UNKN",
+
+		// division
+		"0,b,/":    "0",
+		"1,b,/":    "1,b,/",
+		"5,2,/":    "2.5",
+		"2,5,/":    "0.4",
+		"a,0,/":    "UNKN",
+		"a,1,/":    "a",
+		"a,b,/":    "a,b,/",
+		"x,x,/":    "x,x,/", // cannot simplify to 1 because x might be infinite
+		"UNKN,2,/": "UNKN",
+		"2,UNKN,/": "UNKN",
+
+		// modulo
+		"0,b,%":    "0,b,%", // ???
+		"1,b,%":    "1,b,%",
+		"5,2,%":    "1",
+		"2,5,%":    "2",
+		"a,0,%":    "UNKN",
+		"a,1,%":    "0",
+		"a,b,%":    "a,b,%",
+		"x,x,%":    "x,x,%", // cannot simplify to 0 because x might be infinite
+		"UNKN,2,%": "UNKN",
+		"2,UNKN,%": "UNKN",
+
+		// exponentiation (power)
+		"0,b,POW":    "0", // https://www.quora.com/What-is-infinity-to-the-power-zero-1
+		"1,b,POW":    "1",
+		"5,2,POW":    "25",
+		"2,5,POW":    "32",
+		"a,0,POW":    "1",
+		"a,1,POW":    "a",
+		"a,b,POW":    "a,b,POW",
+		"x,x,POW":    "x,x,POW",
+		"UNKN,2,POW": "UNKN",
+		"2,UNKN,POW": "UNKN",
 	}
 	for input, output := range list {
 		exp, err := New(input)
