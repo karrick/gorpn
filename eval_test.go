@@ -336,6 +336,8 @@ func TestNewExpressionSMIN(t *testing.T) {
 		"a,b,c,3,SMIN":        "a,b,c,3,SMIN", // cannot find minimum of open variables
 		"13,42,2,SMIN":        "13",
 		"42,13,2,SMIN":        "13",
+		"-13,-42,2,SMIN":      "-42",
+		"-42,-13,2,SMIN":      "-42",
 		"42,13,NEGINF,3,SMIN": "NEGINF",
 		"13,a,ISINF,2,SMIN":   "13,a,ISINF,2,SMIN",
 	}
@@ -366,6 +368,8 @@ func TestNewExpressionSMAX(t *testing.T) {
 	list := map[string]string{
 		"a,b,c,3,SMAX":      "a,b,c,3,SMAX", // cannot find minimum of open variables
 		"13,42,2,SMAX":      "42",
+		"-13,-42,2,SMAX":    "-13",
+		"-42,-13,2,SMAX":    "-13",
 		"42,13,2,SMAX":      "42",
 		"42,INF,13,3,SMAX":  "INF",
 		"13,a,ISINF,2,SMAX": "13,a,ISINF,2,SMAX",
