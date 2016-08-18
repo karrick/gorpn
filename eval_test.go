@@ -111,12 +111,17 @@ func TestNewExpressionSimplifiesWhatItCan(t *testing.T) {
 		"5,2,%":    "1",
 		"5,NaN,/":  "UNKN", // NaN is represented as UNKN (don't like this)
 		"5,UNKN,/": "UNKN", // NaN is represented as UNKN (don't like this)
+		"2,8,POW":  "256",
+		"8,2,POW":  "64",
+		"x,0,POW":  "1",
+		"x,1,POW":  "x",
 
-		"x,x,+": "x,x,+",
-		"x,x,-": "x,x,-",
-		"x,x,*": "x,x,*",
-		"x,x,/": "x,x,/",
-		"x,x,%": "x,x,%",
+		"x,x,+":   "x,x,+",
+		"x,x,-":   "x,x,-",
+		"x,x,*":   "x,x,*",
+		"x,x,/":   "x,x,/",
+		"x,x,%":   "x,x,%",
+		"x,x,POW": "x,x,POW",
 	}
 	for input, output := range list {
 		exp, err := New(input)

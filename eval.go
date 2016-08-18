@@ -63,6 +63,7 @@ var arity = map[string]arityTuple{
 	"MINNAN":   {2, 0, 0, 2, 2},
 	"NE":       {2, 0, 0, 2, 2},
 	"POP":      {1, 0, 0, 0, 0},
+	"POW":      {2, 2, 0, 0, 0},
 	"RAD2DEG":  {1, 1, 1, 0, 0},
 	"REV":      {1, 1, 1, 0, 0}, // other operands cannot be operators
 	"ROLL":     {2, 2, 2, 0, 0}, // n,m,ROLL (rotate the top n elements of the stack by m)
@@ -667,6 +668,21 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							result = e.scratch[indexOfFirstArg].(float64) / e.scratch[indexOfFirstArg+1].(float64)
 						case "%":
 							result = math.Mod(e.scratch[indexOfFirstArg].(float64), e.scratch[indexOfFirstArg+1].(float64))
+						case "POW":
+							if e.isFloat[indexOfFirstArg+1] {
+								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
+									result = 1
+								} else if b == 1 {
+									result = e.scratch[indexOfFirstArg]
+								} else if e.isFloat[indexOfFirstArg] {
+									result = math.Pow(e.scratch[indexOfFirstArg].(float64), b)
+								} else {
+									cannotSimplify = true
+								}
+							} else {
+								cannotSimplify = true
+							}
+
 						case "ADDNAN":
 							firstNaN = math.IsNaN(e.scratch[indexOfFirstArg].(float64))
 							secondNaN = math.IsNaN(e.scratch[indexOfFirstArg+1].(float64))
