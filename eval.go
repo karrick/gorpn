@@ -475,6 +475,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 	if e.performTimeSubstitutions {
 		nowSeconds = float64(time.Now().Unix())
 
+		// if TIME binding provided, then we can support many more RPN operators
 		if epoch, ok := bindings["TIME"]; ok {
 			zTimeSeconds, isTimeSet = epoch.(float64)
 			if !isTimeSet {
@@ -511,6 +512,24 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 			e.scratchHead++
 		case string:
 			switch token {
+
+			case "UNKN":
+				e.scratch[e.scratchHead] = math.NaN()
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "INF":
+				e.scratch[e.scratchHead] = math.Inf(1)
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "NEGINF":
+				e.scratch[e.scratchHead] = math.Inf(-1)
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "STEPWIDTH":
+				e.scratch[e.scratchHead] = e.secondsPerInterval
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+
 			case "MINUTE":
 				e.scratch[e.scratchHead] = 60.0
 				e.isFloat[e.scratchHead] = true
@@ -527,34 +546,40 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				e.scratch[e.scratchHead] = 604800.0
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
-			case "UNKN":
-				e.scratch[e.scratchHead] = math.NaN()
-				e.isFloat[e.scratchHead] = true
+
+			case "NOW":
+				if e.performTimeSubstitutions {
+					e.scratch[e.scratchHead] = nowSeconds
+				} else {
+					e.scratch[e.scratchHead] = token
+					e.openBindings[token] = e.openBindings[token] + 1
+				}
+				e.isFloat[e.scratchHead] = e.performTimeSubstitutions
 				e.scratchHead++
-			case "INF":
-				e.scratch[e.scratchHead] = math.Inf(1)
-				e.isFloat[e.scratchHead] = true
+
+			case "TIME":
+				if isTimeSet {
+					e.scratch[e.scratchHead] = zTimeSeconds
+				} else {
+					e.scratch[e.scratchHead] = token
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+				}
+				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
 			case "LTIME":
 				if isTimeSet {
 					e.scratch[e.scratchHead] = jTimeSeconds
 				} else {
-					// NOTE: these tokens actually require TIME to be bound
-					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1 // NOTE: actually requires TIME to be bound
 					e.scratch[e.scratchHead] = token
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
-				e.scratchHead++
-			case "NEGINF":
-				e.scratch[e.scratchHead] = math.Inf(-1)
-				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "NEWDAY":
 				if isTimeSet {
 					e.scratch[e.scratchHead] = isFirstOfDay(jTimeSeconds, e.secondsPerInterval)
 				} else {
-					// NOTE: these tokens actually require TIME to be bound
-					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1 // NOTE: actually requires TIME to be bound
 					e.scratch[e.scratchHead] = token
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
@@ -567,8 +592,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 						e.scratch[e.scratchHead] = 0.0
 					}
 				} else {
-					// NOTE: these tokens actually require TIME to be bound
-					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1 // NOTE: actually requires TIME to be bound
 					e.scratch[e.scratchHead] = token
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
@@ -581,8 +605,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 						e.scratch[e.scratchHead] = 0.0
 					}
 				} else {
-					// NOTE: these tokens actually require TIME to be bound
-					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1 // NOTE: actually requires TIME to be bound
 					e.scratch[e.scratchHead] = token
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
@@ -595,34 +618,12 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 						e.scratch[e.scratchHead] = 0.0
 					}
 				} else {
-					// NOTE: these tokens actually require TIME to be bound
-					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1 // NOTE: actually requires TIME to be bound
 					e.scratch[e.scratchHead] = token
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
-			case "NOW":
-				e.isFloat[e.scratchHead] = e.performTimeSubstitutions
-				if e.performTimeSubstitutions {
-					e.scratch[e.scratchHead] = nowSeconds
-				} else {
-					e.scratch[e.scratchHead] = token
-					e.openBindings[token] = e.openBindings[token] + 1
-				}
-				e.scratchHead++
-			case "STEPWIDTH":
-				e.scratch[e.scratchHead] = e.secondsPerInterval
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-			case "TIME":
-				if isTimeSet {
-					e.scratch[e.scratchHead] = zTimeSeconds
-				} else {
-					e.scratch[e.scratchHead] = token
-					e.openBindings[token] = e.openBindings[token] + 1
-				}
-				e.isFloat[e.scratchHead] = isTimeSet
-				e.scratchHead++
+
 			case "":
 				return newErrSyntax("empty token")
 			default:
