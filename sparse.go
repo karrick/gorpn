@@ -37,10 +37,11 @@ func (s *SparseSeries) Bucket(start, end time.Time, step time.Duration, cf int) 
 		return nil, errors.Errorf("cannot bucket with non-matching lengths of Times and Values: %d != %d", lt, lv)
 	}
 
+	nan := math.NaN() // likely will need this value a lot
 	bucketStart := start.Truncate(step)
 	bucketEnd := bucketStart.Add(step)
-	bucketCount := 1
 	t := bucketEnd
+	bucketCount := 1
 
 	// NOTE: calculate number of buckets response requires
 	if !bucketEnd.After(end) {
@@ -58,8 +59,7 @@ func (s *SparseSeries) Bucket(start, end time.Time, step time.Duration, cf int) 
 		Step:   step,
 		Values: make([]float64, bucketCount),
 	}
-	var di int        // destination index within def.Values
-	nan := math.NaN() // likely will need this value a lot
+	var di int // destination index within def.Values
 
 	if len(s.Times) > 0 {
 		// PRE: t is final bucketEnd
