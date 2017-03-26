@@ -226,6 +226,7 @@ func TestNewExpressionABS(t *testing.T) {
 		"1,ABS":      "1",
 		"NEGINF,ABS": "INF",
 		"INF,ABS":    "INF",
+		"UNKN,ABS":   "UNKN",
 	}
 	for input, output := range list {
 		exp, err := New(input)
@@ -277,6 +278,7 @@ func TestNewExpressionAVG(t *testing.T) {
 		"13,a,ISINF,2,AVG": "13,a,ISINF,2,AVG",
 		// AVG ignores UNKN values
 		"42,UNKN,13,3,AVG": "27.5",
+		"UNKN,UNKN,2,AVG":  "UNKN",
 	}
 	for input, output := range list {
 		exp, err := New(input)
@@ -579,6 +581,15 @@ func TestNewExpressionGE(t *testing.T) {
 		"x,2,GE":           "x,2,GE",
 		"x,x,GE":           "1",
 		"x,y,GE":           "x,y,GE",
+		// For historical reasons, comparing against NaN resolves to NaN
+		"UNKN,13,GE":     "UNKN",
+		"13,UNKN,GE":     "UNKN",
+		"UNKN,-13,GE":    "UNKN",
+		"-13,UNKN,GE":    "UNKN",
+		"UNKN,INF,GE":    "UNKN",
+		"INF,UNKN,GE":    "UNKN",
+		"UNKN,NEGINF,GE": "UNKN",
+		"NEGINF,UNKN,GE": "UNKN",
 	}
 	for input, output := range list {
 		exp, err := New(input)
@@ -603,6 +614,15 @@ func TestNewExpressionGT(t *testing.T) {
 		"x,2,GT":           "x,2,GT",
 		"x,x,GT":           "0",
 		"x,y,GT":           "x,y,GT",
+		// For historical reasons, comparing against NaN resolves to NaN
+		"UNKN,13,GT":     "UNKN",
+		"13,UNKN,GT":     "UNKN",
+		"UNKN,-13,GT":    "UNKN",
+		"-13,UNKN,GT":    "UNKN",
+		"UNKN,INF,GT":    "UNKN",
+		"INF,UNKN,GT":    "UNKN",
+		"UNKN,NEGINF,GT": "UNKN",
+		"NEGINF,UNKN,GT": "UNKN",
 	}
 	for input, output := range list {
 		exp, err := New(input)
@@ -778,6 +798,15 @@ func TestNewExpressionLE(t *testing.T) {
 		"x,2,LE":           "x,2,LE",
 		"x,x,LE":           "1",
 		"x,y,LE":           "x,y,LE",
+		// For historical reasons, comparing against NaN resolves to NaN
+		"UNKN,13,LE":     "UNKN",
+		"13,UNKN,LE":     "UNKN",
+		"UNKN,-13,LE":    "UNKN",
+		"-13,UNKN,LE":    "UNKN",
+		"UNKN,INF,LE":    "UNKN",
+		"INF,UNKN,LE":    "UNKN",
+		"UNKN,NEGINF,LE": "UNKN",
+		"NEGINF,UNKN,LE": "UNKN",
 	}
 	for input, output := range list {
 		exp, err := New(input)
@@ -802,6 +831,15 @@ func TestNewExpressionLT(t *testing.T) {
 		"x,2,LT":           "x,2,LT",
 		"x,x,LT":           "0",
 		"x,y,LT":           "x,y,LT",
+		// For historical reasons, comparing against NaN resolves to NaN
+		"UNKN,13,LT":     "UNKN",
+		"13,UNKN,LT":     "UNKN",
+		"UNKN,-13,LT":    "UNKN",
+		"-13,UNKN,LT":    "UNKN",
+		"UNKN,INF,LT":    "UNKN",
+		"INF,UNKN,LT":    "UNKN",
+		"UNKN,NEGINF,LT": "UNKN",
+		"NEGINF,UNKN,LT": "UNKN",
 	}
 	for input, output := range list {
 		exp, err := New(input)

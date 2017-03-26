@@ -932,7 +932,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 						case "GE":
 							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(float64) >= e.scratch[indexOfFirstArg+1].(float64) {
+								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
+									result = math.NaN()
+								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
+									result = math.NaN()
+								} else if e.scratch[indexOfFirstArg].(float64) >= e.scratch[indexOfFirstArg+1].(float64) {
 									result = float64(1)
 								} else {
 									result = float64(0)
@@ -948,7 +952,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 						case "LE":
 							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(float64) <= e.scratch[indexOfFirstArg+1].(float64) {
+								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
+									result = math.NaN()
+								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
+									result = math.NaN()
+								} else if e.scratch[indexOfFirstArg].(float64) <= e.scratch[indexOfFirstArg+1].(float64) {
 									result = float64(1)
 								} else {
 									result = float64(0)
@@ -964,7 +972,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 						case "GT":
 							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(float64) > e.scratch[indexOfFirstArg+1].(float64) {
+								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
+									result = math.NaN()
+								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
+									result = math.NaN()
+								} else if e.scratch[indexOfFirstArg].(float64) > e.scratch[indexOfFirstArg+1].(float64) {
 									result = float64(1)
 								} else {
 									result = float64(0)
@@ -980,7 +992,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 						case "LT":
 							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(float64) < e.scratch[indexOfFirstArg+1].(float64) {
+								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
+									result = math.NaN()
+								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
+									result = math.NaN()
+								} else if e.scratch[indexOfFirstArg].(float64) < e.scratch[indexOfFirstArg+1].(float64) {
 									result = float64(1)
 								} else {
 									result = float64(0)
