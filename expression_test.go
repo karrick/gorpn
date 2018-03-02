@@ -98,7 +98,7 @@ func TestNewExpressionSimplifyConstants(t *testing.T) {
 func TestDivisorNaN(t *testing.T) {
 	r := 5 / math.NaN()
 	if !math.IsNaN(r) {
-		t.Errorf("Actual: %#v; Expected: %#v", r, math.NaN)
+		t.Errorf("Actual: %#v; Expected: %#v", r, math.NaN())
 	}
 }
 
