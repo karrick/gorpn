@@ -1,0 +1,91 @@
+package gorpn
+
+import "time"
+
+type Datum struct {
+	When time.Time
+	What float64
+}
+
+type Series []Datum
+
+// a CDEF works by having an expression, closing over values for each variable, and evaluating it
+
+// a VDEF works by having an expression, and evaluating over a series of datum values
+
+// Vdef is like an expression, but operates on all the datum values in a Series.
+type Vdef struct {
+	// MAXIMUM "mydata,MAXIMUM"
+	// MINIMUM "mydata,MINIMUM"
+	// AVERAGE "mydata,AVERAGE"
+	// STDEV "mydata,STDEV"
+	// consider MAD
+	// LAST "mydata,LAST"
+	// FIRST "mydata,FIRST"
+	// TOTAL "mydata,TOTAL"
+	// PERCENT "mydata,95,PERCENT"
+	// PERCENTNAN "mydata,95,PERCENTNAN"
+	// LSLSLOPE
+	// LSLINT
+	// LSLCORREL
+
+	// NOTE: I'm not sure whether a Vdef should invoke Expression to simplify it during instantiation.
+}
+
+func (v *Vdef) Evaluate(s Series) (float64, error) {
+	return 0, nil
+}
+
+package main
+
+import (
+	"fmt"
+	"math"
+	"time"
+)
+
+//
+
+type stateMap map[string]bool
+
+func main() {
+	interval := time.Second
+	previous := time.Now().Truncate(interval)
+	fmt.Println(previous)
+	bucket := previous.Add(5 * interval)
+	for missing := int(bucket.Sub(previous)/interval) - 1; missing > 0; missing-- {
+		fmt.Println(math.NaN())
+	}
+	fmt.Println(bucket)
+
+	foo, ok := raw.(map[string]interface{})
+	if !ok {
+		// as before, log, then make new map
+		savedState = make(stateMap)
+	} else {
+		savedState = stateMap(foo)
+	}
+
+	foo, ok := raw.(map[string]interface{})
+	if !ok {
+		// as before, log, then make new map
+		savedState = make(stateMap)
+	} else {
+		savedState = map[string]bool(foo)
+	}
+
+	foo, ok := raw.(map[string]interface{})
+	if !ok {
+		// only log here
+	}
+	savedState = make(stateMap) // always make new map
+	// and fill it with values from CB
+	for k, v := range foo {
+		savedState[k] = v
+	}
+
+}
+
+//////////
+
+Consider converting strings to tokens when compiling RPN, including operators.
