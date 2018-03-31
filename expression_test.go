@@ -205,8 +205,9 @@ func TestNewExpressionUnresolvedSymbol(t *testing.T) {
 
 func TestNewExpressionExamples(t *testing.T) {
 	list := map[string]string{
-		"0,0,GT,qps,0,0,EQ,-2,0,IF,IF": "-2",
-		"1,0,GT,qps,-2,IF":             "qps",
+		// "0,0,GT,qps,0,0,EQ,-2,0,IF,IF":                      "-2",
+		// "1,0,GT,qps,-2,IF":                                  "qps",
+		"qps,load,1000000,/,25,GE,load,1000000000,/,0,IF,/": "qps,load,1e+06,/,25,GE,load,1e+09,/,0,IF,/",
 	}
 	for input, output := range list {
 		exp, err := New(input)
@@ -1001,6 +1002,42 @@ func TestNewExpressionNE(t *testing.T) {
 		"x,2,NE":           "x,2,NE",
 		"x,x,NE":           "0",
 		"x,y,NE":           "x,y,NE",
+	}
+	for input, output := range list {
+		exp, err := New(input)
+		if err != nil {
+			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
+		}
+		if actual, want := exp.String(), output; actual != want {
+			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, actual, want)
+		}
+	}
+}
+
+func TestNewExpressionAND(t *testing.T) {
+	list := map[string]string{
+		"0,0,AND": "0",
+		"0,1,AND": "0",
+		"1,0,AND": "0",
+		"1,1,AND": "1",
+	}
+	for input, output := range list {
+		exp, err := New(input)
+		if err != nil {
+			t.Fatalf("Case: %s; Actual: %#v; Expected: %#v", input, err, nil)
+		}
+		if actual, want := exp.String(), output; actual != want {
+			t.Errorf("Case: %s; Actual: %#v; Expected: %#v", input, actual, want)
+		}
+	}
+}
+
+func TestNewExpressionOR(t *testing.T) {
+	list := map[string]string{
+		"0,0,OR": "0",
+		"0,1,OR": "1",
+		"1,0,OR": "1",
+		"1,1,OR": "1",
 	}
 	for input, output := range list {
 		exp, err := New(input)

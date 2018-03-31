@@ -2,6 +2,7 @@ package gorpn
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"reflect"
 	"sort"
@@ -21,7 +22,11 @@ const DefaultSecondsPerInterval = 300
 
 // type arityTuple [3]int
 type arityTuple struct {
-	popCount, floatOffset, floatCount, nonOperatorOffset, nonOperatorCount int
+	popCount          int // number of arguments to pop off the stack
+	floatOffset       int // index of first floating point argument
+	floatCount        int // number of arguments that must be floating point to simplify
+	nonOperatorOffset int
+	nonOperatorCount  int
 }
 
 // arity resolves to the number of items an operation must pop, and
@@ -33,6 +38,7 @@ var arity = map[string]arityTuple{
 	"-":        {2, 2, 0, 0, 0},
 	"/":        {2, 2, 0, 0, 0},
 	"ABS":      {1, 1, 1, 0, 0},
+	"AND":      {2, 0, 0, 2, 2},
 	"ADDNAN":   {2, 2, 2, 0, 0},
 	"ATAN":     {1, 1, 1, 0, 0},
 	"ATAN2":    {2, 2, 2, 0, 0},
@@ -626,7 +632,9 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 
 			case "":
 				return newErrSyntax("empty token")
+
 			default:
+				fmt.Printf("TOKEN: %q\n", token)
 				if opArity, ok = arity[token]; ok {
 					additionalArgumentCount = 0
 					cannotSimplify = false
@@ -639,11 +647,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 					}
 					indexOfFirstArg = e.scratchHead - opArity.popCount
 
-					// fmt.Println("FLOAT CHECK: e.tokens:", e.tokens, "e.scratch:", e.scratch[:e.scratchHead], "opArity:", opArity, "floatOffset:", opArity.floatOffset, "floatCount:", opArity.floatCount)
+					fmt.Println("FLOAT CHECK: e.tokens:", e.tokens, "e.scratch:", e.scratch[:e.scratchHead], "opArity:", opArity, "floatOffset:", opArity.floatOffset, "floatCount:", opArity.floatCount)
 					for argIdx = e.scratchHead - opArity.floatOffset; argIdx < e.scratchHead-opArity.floatOffset+opArity.floatCount; argIdx++ {
-						// fmt.Printf("argIndex: %d; scratch: %v\n", argIdx, e.scratch[argIdx])
+						fmt.Printf("argIndex: %d; scratch: %v\n", argIdx, e.scratch[argIdx])
 						if _, isFloat = e.scratch[argIdx].(float64); !isFloat {
-							// fmt.Println("found non float:", e.scratch[argIdx])
+							fmt.Println("found non float:", e.scratch[argIdx])
 							cannotSimplify = true
 							break
 						}
@@ -661,6 +669,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 						}
 					}
+					fmt.Printf("cannotSimplify: %t\n", cannotSimplify)
 					if !cannotSimplify {
 						switch token {
 						case "+":
@@ -879,13 +888,16 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							}
 						case "IF":
 							// A,B,C,IF ==> A ? B : C
+							log.Printf("\"IF\": %v; %v; %v", e.scratch[indexOfFirstArg], e.scratch[indexOfFirstArg+1], e.scratch[indexOfFirstArg+2])
 							if e.isFloat[indexOfFirstArg] {
+								log.Printf("first arg is float: %v", e.scratch[indexOfFirstArg])
 								if e.scratch[indexOfFirstArg].(float64) < 0 || e.scratch[indexOfFirstArg].(float64) > 0 {
 									result = e.scratch[indexOfFirstArg+1]
 								} else {
 									result = e.scratch[indexOfFirstArg+2]
 								}
 							} else {
+								log.Printf("first arg is not float: %v", e.scratch[indexOfFirstArg])
 								cannotSimplify = true
 							}
 						case "LIMIT":
@@ -1492,6 +1504,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 						e.isFloat[e.scratchHead] = false
 						e.scratchHead++
 					} else if !stackUpdated {
+						log.Printf("stackUpdated: %t\n", stackUpdated)
 						e.scratchHead -= opArity.popCount + additionalArgumentCount
 						e.scratch[e.scratchHead] = result
 						_, e.isFloat[e.scratchHead] = result.(float64)
