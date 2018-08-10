@@ -16,7 +16,7 @@ For RPN expressions that contain all the required data to calculate the result, 
 expression and evaluate it.
 
 ```Go
-    expression, err := gorpn.New("60,24.*")
+    expression, err := gorpn.New("60,24,*")
     if err != nil {
         panic(err)
     }
@@ -32,7 +32,7 @@ For RPN expressions that do _not_ contain all the required data, and require var
 provide them in the form of a map of string variable names to their respective numerical values.
 
 ```Go
-    expression, err := gorpn.New("12,age.*")
+    expression, err := gorpn.New("12,age,*")
     if err != nil {
         panic(err)
     }
@@ -150,7 +150,7 @@ because all the information required to calculate the result is in the expressio
 expression `1,2,3,4,5,6,7,8,9,10,AVG` contains all the information needed to calculate the result.
 
 ```Go
-    expression, err := gorpn.New("60,24.*")
+    expression, err := gorpn.New("60,24,*")
     if err != nil {
         panic(err)
     }
