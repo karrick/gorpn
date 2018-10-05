@@ -310,6 +310,24 @@ func (e *Expression) Evaluate(bindings map[string]interface{}) (float64, error) 
 	return result, nil
 }
 
+// OpenBindings returns a slice of strings representing the remaining open
+// bindings in the Expression.
+func (e *Expression) OpenBindings() []string {
+	l := len(e.openBindings)
+	if l == 0 {
+		return nil
+	}
+
+	openBindings := make([]string, 0, l)
+	for k, v := range e.openBindings {
+		if v > 0 {
+			openBindings = append(openBindings, k)
+		}
+	}
+
+	return openBindings
+}
+
 // String returns the string representation of an Expression.
 //
 //	func example() {
