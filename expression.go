@@ -217,7 +217,7 @@ type Expression struct {
 // RPN expression is returned. See notes on the Partial method for additional reasoning behind this
 // decision.
 //
-//	expression, err := gorpn.New("60,24.*")
+//	expression, err := gorpn.New("60,24,*")
 //	if err != nil {
 //	    panic(err)
 //	}
@@ -260,7 +260,7 @@ func New(someExpression string, setters ...ExpressionConfigurator) (*Expression,
 // Evaluate evaluates the Expression after applying the parameter bindings. An empty map or, more
 // idiomatically a nil value, is given to Evaluate for RPN expressions that have no open bindings.
 //
-//	expression, err := gorpn.New("60,24.*")
+//	expression, err := gorpn.New("60,24,*")
 //	if err != nil {
 //	    panic(err)
 //	}
@@ -272,7 +272,7 @@ func New(someExpression string, setters ...ExpressionConfigurator) (*Expression,
 // For RPN expressions that have open bindings, simply create a map and set keys to the parameter
 // names and their respective values to their desired bound values.
 //
-//	expression, err := gorpn.New("12,age.*")
+//	expression, err := gorpn.New("12,age,*")
 //	if err != nil {
 //	    panic(err)
 //	}
