@@ -52,10 +52,19 @@ provide them in the form of a map of string variable names to their respective n
  * +, -, *, /, %
  * ABS
  * ADDNAN (add, but if one num is NaN/UNK, treat it as zero. if both NaN/UNK, then return NaN/UNK)
+ * ATAN (output in radians)
+ * ATAN2 (output in radians)
  * CEIL
+ * COS (input in radians)
+ * DEG2RAD
+ * EXP: a,EXP -> a^_e_, where _e_ is the natural number
  * FLOOR
- * SMIN: a,b,c,3,SMIN -> min(a,b,c)
+ * LOG: a,LOG -> log base _e_ of a, where _e_ is the natural number
+ * POW: a,b,POW -> a^b
+ * RAD2DEG
+ * SIN (input in radians)
  * SMAX: a,b,c,3,SMAX -> max(a,b,c)
+ * SMIN: a,b,c,3,SMIN -> min(a,b,c)
  * SQRT
 
 ### Boolean Functions
@@ -72,48 +81,45 @@ Each logical function pushes 1 for 0, and 0 for false.
  * NE (!=)
  * UN (is top of stack UNK?)
 
-### Exponentiation and Logarithmic Functions
+### Comparing Values
 
- * EXP: a,EXP -> a^_e_, where _e_ is the natural number
- * LOG: a,LOG -> log base _e_ of a, where _e_ is the natural number
- * POW: a,b,POW -> a^b
+Pop two elements from the stack and pushes back the larger or smaller
+element, depending on the name.  Infinite is larger than every other
+number.  If either of the numbers are UNK, then pushes UNK back on the
+stack.
 
-### Geometric Functions
+ * MAX
+ * MIN
 
- * ATAN (output in radians)
- * ATAN2 (output in radians)
- * COS (input in radians)
- * SIN (input in radians)
- * DEG2RAD
- * RAD2DEG
+These versions work similar to above, with the exception that if
+either of the two numbers popped off the stack are UNK, then it pushes
+the other number.
 
-### Statistics Functions
+ * MAXNAN
+ * MINNAN 
 
- * AVG (pop count of items, then compute mean, ignoring all UNK)
- * MAD: a,b,c,3,MAD -> median absolute deviation of [a, b, c]
- * MEDIAN: a,b,c,3,MEDIAN -> median of [a, b, c]
- * PERCENT: a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
- * STDEV: a,b,c,3,STDEV -> stdev(a,b,c), ignoring all UNK
+### Set Operations
+
+ * count,SORT: Pop count of items, then pop that many items. Sort, then push all items back.
+ * count,REV: Pop count of items, then pop that many items. Reverse, then push all items back.
+ * count,AVG: Pop count of items, then compute mean, ignoring all UNK. Push mean back.
+ * count,MAD: a,b,c,3,MAD -> median absolute deviation of [a, b, c]
+ * count,MEDIAN: a,b,c,3,MEDIAN -> median of [a, b, c]
+ * percentile,count,PERCENT: a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
+ * count,STDEV: a,b,c,3,STDEV -> stdev(a,b,c), ignoring all UNK
+ * count,TREND: create a "sliding window" average of another data series
+ * count,TRENDNAN: create a "sliding window" average of another data series
 
 ### Other Supported Constants and Functions
 
  * DAY: number of seconds in a day
- * DUP: duplicate value on top of stack
- * EXC: exchange top two items on stack
  * HOUR: number of seconds in an hour
  * INF: push +Inf on stack
  * LIMIT: pop 2 and define inclusive range. pop third. if third in range, push it back, otherwise push UNK. if any of 3 numbers is UNK or ±Inf, push UNK
- * MAX: UNK if either number is UNK
- * MIN: UNK if either number is UNK
  * MINUTE: number of seconds in a minute
  * NEGINF: push -Inf on stack
  * NOW: push number of seconds since epoch
- * POP: discard top element of stack
- * REV: pop count of items. then pop that many items. reverse, then push back
- * SORT: pop count of items. then pop that many items. sort, then push back
  * STEPWIDTH: current step measured in seconds
- * TREND: create a "sliding window" average of another data series
- * TRENDNAN: create a "sliding window" average of another data series
  * UNKN: push UNK
  * WEEK: number of seconds in a week
 
@@ -129,6 +135,16 @@ of a set of bindings. See below for more information.
  * NEWWEEK: push 1 if datum is first datum for week
  * NEWYEAR: push 1 if datum is first datum for year
  * TIME
+
+### Stack Manipulation
+
+ * n,COPY: push a copy of the top _n_ elements onto the stack
+ * DEPTH: pushes the current depth of the stack onto the stack
+ * DUP: duplicate value on top of stack
+ * EXC: exchange top two items on stack
+ * n,INDEX: push the _nth_ element onto the stack
+ * POP: discard top element of stack
+ * n,m,ROLL: rotate the top _n_ elements of the stack by _m_
 
 ## Unsupported Features
 
