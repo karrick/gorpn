@@ -254,6 +254,7 @@ func New(someExpression string, setters ...ExpressionConfigurator) (*Expression,
 	// scratchSize may be larger than it was before above loop
 	e.scratch = make([]interface{}, e.scratchSize)
 	e.isFloat = make([]bool, e.scratchSize)
+
 	return e.Partial(nil)
 }
 
@@ -531,58 +532,17 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 		case string:
 			switch token {
 
-			case "UNKN":
-				e.scratch[e.scratchHead] = math.NaN()
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-			case "INF":
-				e.scratch[e.scratchHead] = math.Inf(1)
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-			case "NEGINF":
-				e.scratch[e.scratchHead] = math.Inf(-1)
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-			case "STEPWIDTH":
-				e.scratch[e.scratchHead] = e.secondsPerInterval
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-
-			case "MINUTE":
-				e.scratch[e.scratchHead] = 60.0
+			case "DAY":
+				e.scratch[e.scratchHead] = 86400.0
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
 			case "HOUR":
 				e.scratch[e.scratchHead] = 3600.0
 				e.isFloat[e.scratchHead] = true
 				e.scratchHead++
-			case "DAY":
-				e.scratch[e.scratchHead] = 86400.0
+			case "INF":
+				e.scratch[e.scratchHead] = math.Inf(1)
 				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-			case "WEEK":
-				e.scratch[e.scratchHead] = 604800.0
-				e.isFloat[e.scratchHead] = true
-				e.scratchHead++
-
-			case "NOW":
-				if e.performTimeSubstitutions {
-					e.scratch[e.scratchHead] = nowSeconds
-				} else {
-					e.scratch[e.scratchHead] = token
-					e.openBindings[token] = e.openBindings[token] + 1
-				}
-				e.isFloat[e.scratchHead] = e.performTimeSubstitutions
-				e.scratchHead++
-
-			case "TIME":
-				if isTimeSet {
-					e.scratch[e.scratchHead] = zTimeSeconds
-				} else {
-					e.scratch[e.scratchHead] = token
-					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
-				}
-				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
 			case "LTIME":
 				if isTimeSet {
@@ -593,6 +553,14 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
+			case "MINUTE":
+				e.scratch[e.scratchHead] = 60.0
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "NEGINF":
+				e.scratch[e.scratchHead] = math.Inf(-1)
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
 			case "NEWDAY":
 				if isTimeSet {
 					e.scratch[e.scratchHead] = isFirstOfDay(jTimeSeconds, e.secondsPerInterval)
@@ -602,9 +570,9 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
-			case "NEWWEEK":
+			case "NEWMONTH":
 				if isTimeSet {
-					if jTime.Weekday() == time.Sunday {
+					if jTime.Day() == 1 {
 						e.scratch[e.scratchHead] = isFirstOfDay(jTimeSeconds, e.secondsPerInterval)
 					} else {
 						e.scratch[e.scratchHead] = 0.0
@@ -615,9 +583,9 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
-			case "NEWMONTH":
+			case "NEWWEEK":
 				if isTimeSet {
-					if jTime.Day() == 1 {
+					if jTime.Weekday() == time.Sunday {
 						e.scratch[e.scratchHead] = isFirstOfDay(jTimeSeconds, e.secondsPerInterval)
 					} else {
 						e.scratch[e.scratchHead] = 0.0
@@ -641,7 +609,36 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 				}
 				e.isFloat[e.scratchHead] = isTimeSet
 				e.scratchHead++
-
+			case "NOW":
+				if e.performTimeSubstitutions {
+					e.scratch[e.scratchHead] = nowSeconds
+				} else {
+					e.scratch[e.scratchHead] = token
+					e.openBindings[token] = e.openBindings[token] + 1
+				}
+				e.isFloat[e.scratchHead] = e.performTimeSubstitutions
+				e.scratchHead++
+			case "STEPWIDTH":
+				e.scratch[e.scratchHead] = e.secondsPerInterval
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "TIME":
+				if isTimeSet {
+					e.scratch[e.scratchHead] = zTimeSeconds
+				} else {
+					e.scratch[e.scratchHead] = token
+					e.openBindings["TIME"] = e.openBindings["TIME"] + 1
+				}
+				e.isFloat[e.scratchHead] = isTimeSet
+				e.scratchHead++
+			case "UNKN":
+				e.scratch[e.scratchHead] = math.NaN()
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
+			case "WEEK":
+				e.scratch[e.scratchHead] = 604800.0
+				e.isFloat[e.scratchHead] = true
+				e.scratchHead++
 			case "":
 				return newErrSyntax("empty token")
 			default:
@@ -775,28 +772,8 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							} else { // neither is float
 								cannotSimplify = true
 							}
-						case "POW":
-							if e.isFloat[indexOfFirstArg] { // a is float
-								if e.isFloat[indexOfFirstArg+1] { // b is also float
-									result = math.Pow(e.scratch[indexOfFirstArg].(float64), e.scratch[indexOfFirstArg+1].(float64))
-								} else if a := e.scratch[indexOfFirstArg].(float64); a == 0 {
-									result = float64(0)
-								} else if a == 1 {
-									result = float64(1)
-								} else {
-									cannotSimplify = true
-								}
-							} else if e.isFloat[indexOfFirstArg+1] { // only b is float
-								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
-									result = float64(1)
-								} else if b == 1 {
-									result = e.scratch[indexOfFirstArg]
-								} else {
-									cannotSimplify = true
-								}
-							} else { // neither is float
-								cannotSimplify = true
-							}
+						case "ABS":
+							result = math.Abs(e.scratch[indexOfFirstArg].(float64))
 						case "ADDNAN":
 							firstNaN = math.IsNaN(e.scratch[indexOfFirstArg].(float64))
 							secondNaN = math.IsNaN(e.scratch[indexOfFirstArg+1].(float64))
@@ -806,6 +783,261 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 								result = e.scratch[indexOfFirstArg]
 							} else {
 								result = e.scratch[indexOfFirstArg+1]
+							}
+						case "ATAN":
+							result = math.Atan(e.scratch[indexOfFirstArg].(float64))
+						case "ATAN2":
+							result = math.Atan2(e.scratch[indexOfFirstArg+1].(float64), e.scratch[indexOfFirstArg].(float64))
+						case "AVG":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
+							}
+							total = 0
+							used = 0
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
+								if !e.isFloat[argIdx] {
+									cannotSimplify = true
+									break
+								}
+								if !math.IsNaN(e.scratch[argIdx].(float64)) {
+									total += e.scratch[argIdx].(float64)
+									used++
+								}
+							}
+							if !cannotSimplify {
+								result = total / float64(used)
+							}
+						case "CEIL":
+							result = math.Ceil(e.scratch[indexOfFirstArg].(float64))
+						case "COPY":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
+							}
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
+								if !e.isFloat[argIdx] {
+									if _, ok = arity[e.scratch[argIdx].(string)]; ok {
+										cannotSimplify = true
+										break
+									}
+								}
+							}
+							if !cannotSimplify {
+								e.scratchHead--
+								if e.scratchHead-1+additionalArgumentCount > cap(e.scratch) {
+									// COPY requires larger scratch and isFloat slices
+									scratch := make([]interface{}, e.scratchHead+additionalArgumentCount)
+									copy(scratch, e.scratch)
+									e.scratch = scratch
+									isFloat := make([]bool, e.scratchHead+additionalArgumentCount)
+									copy(isFloat, e.isFloat)
+									e.isFloat = isFloat
+								}
+								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
+									e.scratch[e.scratchHead] = e.scratch[argIdx]
+									e.isFloat[e.scratchHead] = e.isFloat[argIdx]
+									e.scratchHead++
+								}
+								stackUpdated = true
+							}
+						case "COS":
+							result = math.Cos(e.scratch[indexOfFirstArg].(float64))
+						case "DEG2RAD":
+							result = e.scratch[indexOfFirstArg].(float64) * math.Pi / 180
+						case "DEPTH":
+							e.scratch[e.scratchHead] = e.scratchHead
+							e.isFloat[e.scratchHead] = true
+							e.scratchHead++
+							stackUpdated = true
+						case "DUP":
+							e.scratch[e.scratchHead] = e.scratch[e.scratchHead-1]
+							e.isFloat[e.scratchHead] = e.isFloat[e.scratchHead-1]
+							e.scratchHead++
+							stackUpdated = true
+						case "EQ":
+							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
+								if e.scratch[indexOfFirstArg].(float64) == e.scratch[indexOfFirstArg+1].(float64) {
+									result = float64(1)
+								} else {
+									result = float64(0)
+								}
+							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
+								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
+									result = float64(1)
+								} else {
+									cannotSimplify = true
+								}
+							} else {
+								cannotSimplify = true
+							}
+						case "EXC":
+							e.scratch[indexOfFirstArg], e.scratch[indexOfFirstArg+1] = e.scratch[indexOfFirstArg+1], e.scratch[indexOfFirstArg]
+							e.isFloat[indexOfFirstArg], e.isFloat[indexOfFirstArg+1] = e.isFloat[indexOfFirstArg+1], e.isFloat[indexOfFirstArg]
+							stackUpdated = true
+						case "EXP":
+							result = math.Exp(e.scratch[indexOfFirstArg].(float64))
+						case "FLOOR":
+							result = math.Floor(e.scratch[indexOfFirstArg].(float64))
+						case "GE":
+							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
+								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
+									result = math.NaN()
+								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
+									result = math.NaN()
+								} else if e.scratch[indexOfFirstArg].(float64) >= e.scratch[indexOfFirstArg+1].(float64) {
+									result = float64(1)
+								} else {
+									result = float64(0)
+								}
+							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
+								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
+									result = float64(1)
+								} else {
+									cannotSimplify = true
+								}
+							} else {
+								cannotSimplify = true
+							}
+						case "GT":
+							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
+								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
+									result = math.NaN()
+								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
+									result = math.NaN()
+								} else if e.scratch[indexOfFirstArg].(float64) > e.scratch[indexOfFirstArg+1].(float64) {
+									result = float64(1)
+								} else {
+									result = float64(0)
+								}
+							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
+								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
+									result = float64(0)
+								} else {
+									cannotSimplify = true
+								}
+							} else {
+								cannotSimplify = true
+							}
+						case "IF":
+							// A,B,C,IF ==> A ? B : C
+							if e.isFloat[indexOfFirstArg] {
+								if e.scratch[indexOfFirstArg].(float64) < 0 || e.scratch[indexOfFirstArg].(float64) > 0 {
+									result = e.scratch[indexOfFirstArg+1]
+								} else {
+									result = e.scratch[indexOfFirstArg+2]
+								}
+							} else {
+								cannotSimplify = true
+							}
+						case "INDEX":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
+							}
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
+								if !e.isFloat[argIdx] {
+									if _, ok = arity[e.scratch[argIdx].(string)]; ok {
+										cannotSimplify = true
+										break
+									}
+								}
+							}
+							if !cannotSimplify {
+								e.scratch[e.scratchHead-1] = e.scratch[e.scratchHead-additionalArgumentCount-1]
+								e.isFloat[e.scratchHead-1] = e.isFloat[e.scratchHead-additionalArgumentCount-1]
+								stackUpdated = true
+							}
+						case "ISINF":
+							if math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) {
+								result = float64(1)
+							} else {
+								result = float64(0)
+							}
+						case "LE":
+							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
+								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
+									result = math.NaN()
+								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
+									result = math.NaN()
+								} else if e.scratch[indexOfFirstArg].(float64) <= e.scratch[indexOfFirstArg+1].(float64) {
+									result = float64(1)
+								} else {
+									result = float64(0)
+								}
+							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
+								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
+									result = float64(1)
+								} else {
+									cannotSimplify = true
+								}
+							} else {
+								cannotSimplify = true
+							}
+						case "LIMIT":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) || math.IsNaN(e.scratch[indexOfFirstArg+2].(float64)) {
+								result = math.NaN()
+							} else if math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), -1) || math.IsInf(e.scratch[indexOfFirstArg+2].(float64), -1) {
+								result = math.NaN()
+							} else if !(e.scratch[indexOfFirstArg].(float64) < e.scratch[indexOfFirstArg+1].(float64) || e.scratch[indexOfFirstArg].(float64) > e.scratch[indexOfFirstArg+2].(float64)) {
+								result = e.scratch[indexOfFirstArg]
+							} else {
+								result = math.NaN()
+							}
+						case "LOG":
+							result = math.Log(e.scratch[indexOfFirstArg].(float64))
+						case "LT":
+							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
+								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
+									result = math.NaN()
+								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
+									result = math.NaN()
+								} else if e.scratch[indexOfFirstArg].(float64) < e.scratch[indexOfFirstArg+1].(float64) {
+									result = float64(1)
+								} else {
+									result = float64(0)
+								}
+							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
+								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
+									result = float64(0)
+								} else {
+									cannotSimplify = true
+								}
+							} else {
+								cannotSimplify = true
+							}
+						case "MAD":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
+							}
+							if additionalArgumentCount == 1 {
+								// pin-hole optimization for 1 item
+								result = e.scratch[indexOfFirstArg-1]
+							} else {
+								items := make([]float64, 0, additionalArgumentCount)
+								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
+									if !e.isFloat[argIdx] {
+										cannotSimplify = true
+										break
+									}
+									items = append(items, e.scratch[argIdx].(float64))
+								}
+								if !cannotSimplify {
+									result = mad(items)
+								}
 							}
 						case "MAX":
 							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
@@ -851,6 +1083,30 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							} else {
 								cannotSimplify = true
 							}
+						case "MEDIAN":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
+							}
+							if additionalArgumentCount == 1 {
+								// pin-hole optimization for 1 item
+								result = e.scratch[indexOfFirstArg-1]
+							} else {
+								items := make([]float64, 0, additionalArgumentCount)
+								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
+									if !e.isFloat[argIdx] {
+										cannotSimplify = true
+										break
+									}
+									items = append(items, e.scratch[argIdx].(float64))
+								}
+								if !cannotSimplify {
+									result = median(items)
+								}
+							}
 						case "MIN":
 							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
 								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
@@ -895,43 +1151,6 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							} else {
 								cannotSimplify = true
 							}
-						case "IF":
-							// A,B,C,IF ==> A ? B : C
-							if e.isFloat[indexOfFirstArg] {
-								if e.scratch[indexOfFirstArg].(float64) < 0 || e.scratch[indexOfFirstArg].(float64) > 0 {
-									result = e.scratch[indexOfFirstArg+1]
-								} else {
-									result = e.scratch[indexOfFirstArg+2]
-								}
-							} else {
-								cannotSimplify = true
-							}
-						case "LIMIT":
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) || math.IsNaN(e.scratch[indexOfFirstArg+2].(float64)) {
-								result = math.NaN()
-							} else if math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), -1) || math.IsInf(e.scratch[indexOfFirstArg+2].(float64), -1) {
-								result = math.NaN()
-							} else if !(e.scratch[indexOfFirstArg].(float64) < e.scratch[indexOfFirstArg+1].(float64) || e.scratch[indexOfFirstArg].(float64) > e.scratch[indexOfFirstArg+2].(float64)) {
-								result = e.scratch[indexOfFirstArg]
-							} else {
-								result = math.NaN()
-							}
-						case "EQ":
-							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(float64) == e.scratch[indexOfFirstArg+1].(float64) {
-									result = float64(1)
-								} else {
-									result = float64(0)
-								}
-							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
-									result = float64(1)
-								} else {
-									cannotSimplify = true
-								}
-							} else {
-								cannotSimplify = true
-							}
 						case "NE":
 							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
 								if e.scratch[indexOfFirstArg].(float64) != e.scratch[indexOfFirstArg+1].(float64) {
@@ -948,248 +1167,60 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 							} else {
 								cannotSimplify = true
 							}
-						case "GE":
-							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
-								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
-									result = math.NaN()
-								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
-									result = math.NaN()
-								} else if e.scratch[indexOfFirstArg].(float64) >= e.scratch[indexOfFirstArg+1].(float64) {
-									result = float64(1)
-								} else {
-									result = float64(0)
-								}
-							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
-									result = float64(1)
-								} else {
-									cannotSimplify = true
-								}
-							} else {
-								cannotSimplify = true
-							}
-						case "LE":
-							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
-								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
-									result = math.NaN()
-								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
-									result = math.NaN()
-								} else if e.scratch[indexOfFirstArg].(float64) <= e.scratch[indexOfFirstArg+1].(float64) {
-									result = float64(1)
-								} else {
-									result = float64(0)
-								}
-							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
-									result = float64(1)
-								} else {
-									cannotSimplify = true
-								}
-							} else {
-								cannotSimplify = true
-							}
-						case "GT":
-							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
-								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
-									result = math.NaN()
-								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
-									result = math.NaN()
-								} else if e.scratch[indexOfFirstArg].(float64) > e.scratch[indexOfFirstArg+1].(float64) {
-									result = float64(1)
-								} else {
-									result = float64(0)
-								}
-							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
-									result = float64(0)
-								} else {
-									cannotSimplify = true
-								}
-							} else {
-								cannotSimplify = true
-							}
-						case "LT":
-							if e.isFloat[indexOfFirstArg] && e.isFloat[indexOfFirstArg+1] {
-								if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
-									result = math.NaN()
-								} else if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) {
-									result = math.NaN()
-								} else if e.scratch[indexOfFirstArg].(float64) < e.scratch[indexOfFirstArg+1].(float64) {
-									result = float64(1)
-								} else {
-									result = float64(0)
-								}
-							} else if !e.isFloat[indexOfFirstArg] && !e.isFloat[indexOfFirstArg+1] {
-								if e.scratch[indexOfFirstArg].(string) == e.scratch[indexOfFirstArg+1].(string) {
-									result = float64(0)
-								} else {
-									cannotSimplify = true
-								}
-							} else {
-								cannotSimplify = true
-							}
-						case "EXC":
-							e.scratch[indexOfFirstArg], e.scratch[indexOfFirstArg+1] = e.scratch[indexOfFirstArg+1], e.scratch[indexOfFirstArg]
-							e.isFloat[indexOfFirstArg], e.isFloat[indexOfFirstArg+1] = e.isFloat[indexOfFirstArg+1], e.isFloat[indexOfFirstArg]
-							stackUpdated = true
-						case "DEPTH":
-							e.scratch[e.scratchHead] = e.scratchHead
-							e.isFloat[e.scratchHead] = true
-							e.scratchHead++
-							stackUpdated = true
-						case "COPY":
+						case "PERCENT": // n,m,PERCENT -- a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
+							// percentile
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
 							}
-							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
-							if additionalArgumentCount > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
+							percent := e.scratch[indexOfFirstArg].(float64)
+							// count of values
+							if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), -1) {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg+1])
 							}
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg+1].(float64))
+							if additionalArgumentCount > e.scratchHead-2 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-2)
+							}
+							items := make([]float64, 0, additionalArgumentCount)
+							// cannot calculate percent if any are operators
 							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
 								if !e.isFloat[argIdx] {
-									if _, ok = arity[e.scratch[argIdx].(string)]; ok {
-										cannotSimplify = true
-										break
-									}
+									cannotSimplify = true
+									break
 								}
+								items = append(items, e.scratch[argIdx].(float64))
 							}
 							if !cannotSimplify {
-								e.scratchHead--
-								if e.scratchHead-1+additionalArgumentCount > cap(e.scratch) {
-									// COPY requires larger scratch and isFloat slices
-									scratch := make([]interface{}, e.scratchHead+additionalArgumentCount)
-									copy(scratch, e.scratch)
-									e.scratch = scratch
-									isFloat := make([]bool, e.scratchHead+additionalArgumentCount)
-									copy(isFloat, e.isFloat)
-									e.isFloat = isFloat
-								}
-								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
-									e.scratch[e.scratchHead] = e.scratch[argIdx]
-									e.isFloat[e.scratchHead] = e.isFloat[argIdx]
-									e.scratchHead++
-								}
-								stackUpdated = true
+								sort.Float64s(items)
+								result = items[int(math.Ceil(percent/100*float64(len(items))))-1]
 							}
-						case "INDEX":
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
-								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
-							}
-							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
-							if additionalArgumentCount > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
-							}
-							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
-								if !e.isFloat[argIdx] {
-									if _, ok = arity[e.scratch[argIdx].(string)]; ok {
-										cannotSimplify = true
-										break
-									}
-								}
-							}
-							if !cannotSimplify {
-								e.scratch[e.scratchHead-1] = e.scratch[e.scratchHead-additionalArgumentCount-1]
-								e.isFloat[e.scratchHead-1] = e.isFloat[e.scratchHead-additionalArgumentCount-1]
-								stackUpdated = true
-							}
-						case "DUP":
-							e.scratch[e.scratchHead] = e.scratch[e.scratchHead-1]
-							e.isFloat[e.scratchHead] = e.isFloat[e.scratchHead-1]
-							e.scratchHead++
-							stackUpdated = true
 						case "POP":
 							e.scratchHead--
 							stackUpdated = true
-						case "ABS":
-							result = math.Abs(e.scratch[indexOfFirstArg].(float64))
-						case "CEIL":
-							result = math.Ceil(e.scratch[indexOfFirstArg].(float64))
-						case "FLOOR":
-							result = math.Floor(e.scratch[indexOfFirstArg].(float64))
-						case "ISINF":
-							if math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) {
-								result = float64(1)
-							} else {
-								result = float64(0)
+						case "POW":
+							if e.isFloat[indexOfFirstArg] { // a is float
+								if e.isFloat[indexOfFirstArg+1] { // b is also float
+									result = math.Pow(e.scratch[indexOfFirstArg].(float64), e.scratch[indexOfFirstArg+1].(float64))
+								} else if a := e.scratch[indexOfFirstArg].(float64); a == 0 {
+									result = float64(0)
+								} else if a == 1 {
+									result = float64(1)
+								} else {
+									cannotSimplify = true
+								}
+							} else if e.isFloat[indexOfFirstArg+1] { // only b is float
+								if b := e.scratch[indexOfFirstArg+1].(float64); b == 0 {
+									result = float64(1)
+								} else if b == 1 {
+									result = e.scratch[indexOfFirstArg]
+								} else {
+									cannotSimplify = true
+								}
+							} else { // neither is float
+								cannotSimplify = true
 							}
-						case "UN":
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
-								result = float64(1)
-							} else {
-								result = float64(0)
-							}
-						case "DEG2RAD":
-							result = e.scratch[indexOfFirstArg].(float64) * math.Pi / 180
 						case "RAD2DEG":
 							result = e.scratch[indexOfFirstArg].(float64) * 180 / math.Pi
-						case "ATAN":
-							result = math.Atan(e.scratch[indexOfFirstArg].(float64))
-						case "ATAN2":
-							result = math.Atan2(e.scratch[indexOfFirstArg+1].(float64), e.scratch[indexOfFirstArg].(float64))
-						case "COS":
-							result = math.Cos(e.scratch[indexOfFirstArg].(float64))
-						case "SIN":
-							result = math.Sin(e.scratch[indexOfFirstArg].(float64))
-						case "LOG":
-							result = math.Log(e.scratch[indexOfFirstArg].(float64))
-						case "EXP":
-							result = math.Exp(e.scratch[indexOfFirstArg].(float64))
-						case "SQRT":
-							result = math.Sqrt(e.scratch[indexOfFirstArg].(float64))
-						case "AVG":
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
-								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
-							}
-							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
-							if additionalArgumentCount > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
-							}
-							total = 0
-							used = 0
-							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
-								if !e.isFloat[argIdx] {
-									cannotSimplify = true
-									break
-								}
-								if !math.IsNaN(e.scratch[argIdx].(float64)) {
-									total += e.scratch[argIdx].(float64)
-									used++
-								}
-							}
-							if !cannotSimplify {
-								result = total / float64(used)
-							}
-						case "STDEV":
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
-								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
-							}
-							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
-							if additionalArgumentCount > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
-							}
-							total = 0
-							used = 0
-							items := make([]float64, 0, additionalArgumentCount)
-							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
-								if !e.isFloat[argIdx] {
-									cannotSimplify = true
-									break
-								}
-								if !math.IsNaN(e.scratch[argIdx].(float64)) {
-									total += e.scratch[argIdx].(float64)
-									used++
-									items = append(items, e.scratch[argIdx].(float64))
-								}
-							}
-							if !cannotSimplify {
-								mean := total / float64(used)
-								total = 0
-								for i := range items {
-									diff := items[i] - mean
-									total += diff * diff
-								}
-								result = math.Sqrt(total / float64(used))
-							}
 						case "REV":
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
@@ -1261,6 +1292,66 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 								e.scratchHead -= 2 // drop the count
 								stackUpdated = true
 							}
+						case "SIN":
+							result = math.Sin(e.scratch[indexOfFirstArg].(float64))
+						case "SMAX":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
+							}
+							if additionalArgumentCount == 1 {
+								// pin-hole optimization for 1 item
+								result = e.scratch[indexOfFirstArg-1]
+							} else {
+								if max, ok := e.scratch[indexOfFirstArg-1].(float64); !ok {
+									cannotSimplify = true
+								} else {
+									for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg-1; argIdx++ {
+										if !e.isFloat[argIdx] {
+											cannotSimplify = true
+											break
+										}
+										if item := e.scratch[argIdx].(float64); item > max {
+											max = item
+										}
+									}
+									if !cannotSimplify {
+										result = max
+									}
+								}
+							}
+						case "SMIN":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
+							}
+							if additionalArgumentCount == 1 {
+								// pin-hole optimization for 1 item
+								result = e.scratch[indexOfFirstArg-1]
+							} else {
+								if min, ok := e.scratch[indexOfFirstArg-1].(float64); !ok {
+									cannotSimplify = true
+								} else {
+									for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg-1; argIdx++ {
+										if !e.isFloat[argIdx] {
+											cannotSimplify = true
+											break
+										}
+										if item := e.scratch[argIdx].(float64); item < min {
+											min = item
+										}
+									}
+									if !cannotSimplify {
+										result = min
+									}
+								}
+							}
 						case "SORT":
 							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
@@ -1286,6 +1377,39 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 								}
 								e.scratchHead-- // drop the count
 								stackUpdated = true
+							}
+						case "SQRT":
+							result = math.Sqrt(e.scratch[indexOfFirstArg].(float64))
+						case "STDEV":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
+								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
+							}
+							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
+							if additionalArgumentCount > e.scratchHead-1 {
+								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
+							}
+							total = 0
+							used = 0
+							items := make([]float64, 0, additionalArgumentCount)
+							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
+								if !e.isFloat[argIdx] {
+									cannotSimplify = true
+									break
+								}
+								if !math.IsNaN(e.scratch[argIdx].(float64)) {
+									total += e.scratch[argIdx].(float64)
+									used++
+									items = append(items, e.scratch[argIdx].(float64))
+								}
+							}
+							if !cannotSimplify {
+								mean := total / float64(used)
+								total = 0
+								for i := range items {
+									diff := items[i] - mean
+									total += diff * diff
+								}
+								result = math.Sqrt(total / float64(used))
 							}
 						case "TREND": // label,count,TREND
 							// get the count
@@ -1369,138 +1493,11 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 									return newErrSyntax("%s operand specifies %q label, which is not a series of numbers: %T", token, label, s)
 								}
 							}
-						case "MEDIAN":
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
-								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
-							}
-							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
-							if additionalArgumentCount > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
-							}
-							if additionalArgumentCount == 1 {
-								// pin-hole optimization for 1 item
-								result = e.scratch[indexOfFirstArg-1]
+						case "UN":
+							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) {
+								result = float64(1)
 							} else {
-								items := make([]float64, 0, additionalArgumentCount)
-								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
-									if !e.isFloat[argIdx] {
-										cannotSimplify = true
-										break
-									}
-									items = append(items, e.scratch[argIdx].(float64))
-								}
-								if !cannotSimplify {
-									result = median(items)
-								}
-							}
-						case "MAD":
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
-								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
-							}
-							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
-							if additionalArgumentCount > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
-							}
-							if additionalArgumentCount == 1 {
-								// pin-hole optimization for 1 item
-								result = e.scratch[indexOfFirstArg-1]
-							} else {
-								items := make([]float64, 0, additionalArgumentCount)
-								for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
-									if !e.isFloat[argIdx] {
-										cannotSimplify = true
-										break
-									}
-									items = append(items, e.scratch[argIdx].(float64))
-								}
-								if !cannotSimplify {
-									result = mad(items)
-								}
-							}
-						case "SMAX":
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
-								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
-							}
-							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
-							if additionalArgumentCount > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
-							}
-							if additionalArgumentCount == 1 {
-								// pin-hole optimization for 1 item
-								result = e.scratch[indexOfFirstArg-1]
-							} else {
-								if max, ok := e.scratch[indexOfFirstArg-1].(float64); !ok {
-									cannotSimplify = true
-								} else {
-									for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg-1; argIdx++ {
-										if !e.isFloat[argIdx] {
-											cannotSimplify = true
-											break
-										}
-										if item := e.scratch[argIdx].(float64); item > max {
-											max = item
-										}
-									}
-									if !cannotSimplify {
-										result = max
-									}
-								}
-							}
-						case "SMIN":
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
-								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
-							}
-							additionalArgumentCount = int(e.scratch[indexOfFirstArg].(float64))
-							if additionalArgumentCount > e.scratchHead-1 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-1)
-							}
-							if additionalArgumentCount == 1 {
-								// pin-hole optimization for 1 item
-								result = e.scratch[indexOfFirstArg-1]
-							} else {
-								if min, ok := e.scratch[indexOfFirstArg-1].(float64); !ok {
-									cannotSimplify = true
-								} else {
-									for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg-1; argIdx++ {
-										if !e.isFloat[argIdx] {
-											cannotSimplify = true
-											break
-										}
-										if item := e.scratch[argIdx].(float64); item < min {
-											min = item
-										}
-									}
-									if !cannotSimplify {
-										result = min
-									}
-								}
-							}
-						case "PERCENT": // n,m,PERCENT -- a,b,c,95,3,PERCENT -> find 95percentile of a,b,c using the nearest rank method (https://en.wikipedia.org/wiki/Percentile)
-							// percentile
-							if math.IsNaN(e.scratch[indexOfFirstArg].(float64)) || math.IsInf(e.scratch[indexOfFirstArg].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg].(float64), -1) || e.scratch[indexOfFirstArg].(float64) <= 0 {
-								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg])
-							}
-							percent := e.scratch[indexOfFirstArg].(float64)
-							// count of values
-							if math.IsNaN(e.scratch[indexOfFirstArg+1].(float64)) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), 1) || math.IsInf(e.scratch[indexOfFirstArg+1].(float64), -1) {
-								return newErrSyntax("%s operator requires positive finite integer: %v", token, e.scratch[indexOfFirstArg+1])
-							}
-							additionalArgumentCount = int(e.scratch[indexOfFirstArg+1].(float64))
-							if additionalArgumentCount > e.scratchHead-2 {
-								return newErrSyntax("%s operand requires %d items, but only %d on stack", token, additionalArgumentCount, e.scratchHead-2)
-							}
-							items := make([]float64, 0, additionalArgumentCount)
-							// cannot calculate percent if any are operators
-							for argIdx = indexOfFirstArg - additionalArgumentCount; argIdx < indexOfFirstArg; argIdx++ {
-								if !e.isFloat[argIdx] {
-									cannotSimplify = true
-									break
-								}
-								items = append(items, e.scratch[argIdx].(float64))
-							}
-							if !cannotSimplify {
-								sort.Float64s(items)
-								result = items[int(math.Ceil(percent/100*float64(len(items))))-1]
+								result = float64(0)
 							}
 						}
 					}
