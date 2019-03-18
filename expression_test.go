@@ -640,8 +640,8 @@ func TestNewExpressionGeometric(t *testing.T) {
 		"90,DEG2RAD,SIN":                   "1",
 		"180,DEG2RAD,COS":                  "-1",
 		fmt.Sprintf("%v,RAD2DEG", math.Pi): "180",
-		"1,ATAN":    "0.7853981633974483",
-		"1,2,ATAN2": "1.1071487177940904",
+		"1,ATAN":                           "0.7853981633974483",
+		"1,2,ATAN2":                        "1.1071487177940904",
 	}
 	for input, output := range list {
 		exp, err := New(input)
