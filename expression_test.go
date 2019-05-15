@@ -1181,10 +1181,10 @@ func TestNewExpressionSORT(t *testing.T) {
 
 func TestNewExpressionTREND(t *testing.T) {
 	errors := map[string]string{
-		"a,-INF,TREND": "syntax error : TREND operator requires positive finite integer: -Inf",
-		"a,-1,TREND":   "syntax error : TREND operator requires positive finite integer: -1",
-		"a,0,TREND":    "syntax error : TREND operator requires positive finite integer: 0",
-		"a,INF,TREND":  "syntax error : TREND operator requires positive finite integer: +Inf",
+		"a,NEGINF,TREND": "syntax error : TREND operator requires positive finite integer: -Inf",
+		"a,-1,TREND":     "syntax error : TREND operator requires positive finite integer: -1",
+		"a,0,TREND":      "syntax error : TREND operator requires positive finite integer: 0",
+		"a,INF,TREND":    "syntax error : TREND operator requires positive finite integer: +Inf",
 	}
 	for i, e := range errors {
 		if _, err := New(i); err == nil || err.Error() != e {
@@ -1207,10 +1207,10 @@ func TestNewExpressionTREND(t *testing.T) {
 
 func TestNewExpressionTRENDNAN(t *testing.T) {
 	errors := map[string]string{
-		"a,-INF,TRENDNAN": "syntax error : TRENDNAN operator requires positive finite integer: -Inf",
-		"a,-1,TRENDNAN":   "syntax error : TRENDNAN operator requires positive finite integer: -1",
-		"a,0,TRENDNAN":    "syntax error : TRENDNAN operator requires positive finite integer: 0",
-		"a,INF,TRENDNAN":  "syntax error : TRENDNAN operator requires positive finite integer: +Inf",
+		"a,NEGINF,TRENDNAN": "syntax error : TRENDNAN operator requires positive finite integer: -Inf",
+		"a,-1,TRENDNAN":     "syntax error : TRENDNAN operator requires positive finite integer: -1",
+		"a,0,TRENDNAN":      "syntax error : TRENDNAN operator requires positive finite integer: 0",
+		"a,INF,TRENDNAN":    "syntax error : TRENDNAN operator requires positive finite integer: +Inf",
 	}
 	for i, e := range errors {
 		if _, err := New(i); err == nil || err.Error() != e {
