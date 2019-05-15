@@ -1414,7 +1414,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 						case "TREND": // label,count,TREND
 							// get the count
 							v := e.scratch[indexOfFirstArg+1].(float64)
-							if math.IsNaN(v) || math.IsInf(v, 1) || math.IsInf(v, -1) || v <= 0 {
+							if math.IsNaN(v) || v <= 0 || math.IsInf(v, 1) {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, v)
 							}
 							additionalArgumentCount = int(math.Ceil(v / float64(e.secondsPerInterval)))
@@ -1454,7 +1454,7 @@ func (e *Expression) simplify(bindings map[string]interface{}) error {
 						case "TRENDNAN": // label,count,TRENDNAN
 							// get the count
 							v := e.scratch[indexOfFirstArg+1].(float64)
-							if math.IsNaN(v) || math.IsInf(v, 1) || math.IsInf(v, -1) || v <= 0 {
+							if math.IsNaN(v) || v <= 0 || math.IsInf(v, 1) {
 								return newErrSyntax("%s operator requires positive finite integer: %v", token, v)
 							}
 							additionalArgumentCount = int(math.Ceil(v / e.secondsPerInterval))
